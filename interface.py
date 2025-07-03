@@ -4,11 +4,13 @@ import time
 
 import gradio as gr
 
-# -------------------- Logging Setup --------------------
+# --------------------- Logging Setup --------------------
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# -------------------- Type Definitions --------------------
+# -------------------- Type Definitions ------------------
+
 class Message(TypedDict):
     role: Literal["user", "assistant"]
     content: str
@@ -25,6 +27,7 @@ def mock_token_stream(*args, **kwargs) -> Generator[str, None, None]:
         time.sleep(0.1)
         yield token
 
+
 def format_prompt(message: str, history: List[Message]) -> str:
     """"
     Constructs a prompt string from the message and history.
@@ -40,6 +43,7 @@ def format_prompt(message: str, history: List[Message]) -> str:
     prompt_parts.append(f"User: {message}")
     prompt_parts.append("Assistant:")
     return "\n".join(prompt_parts)
+
 
 def stream_response(message: str, 
                     history: List[Message], 
@@ -65,6 +69,7 @@ def stream_response(message: str,
 
     history.append({"role": "assistant", "content": assistant_output})
     yield "", history
+
 
 def build_interface() -> gr.Blocks:
     """
@@ -100,6 +105,7 @@ def build_interface() -> gr.Blocks:
         )
         
     return interface
+
 
 # -------------------- Main Entry --------------------
 
