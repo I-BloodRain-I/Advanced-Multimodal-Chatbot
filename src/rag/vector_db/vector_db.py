@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional, Union
 import numpy as np
 
 from config import Config
-from chatbot.types import RagDocument
+from common.types import RagDocument
 from .engines import PineconeEngine
 
 class VectorDatabase:

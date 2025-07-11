@@ -7,8 +7,9 @@ from pinecone import Pinecone, ServerlessSpec
 from pinecone.db_data.index import Index as PineconeIndex
 import numpy as np
 
+from .base import VectorDatabaseEngine
 from config import Config
-from chatbot.types import RagDocument
+from common.types import RagDocument
 from utils.validation import require_env_var
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class PineconeConfig:
             logger.error(f"Failed to create PineconeConfig from configuration: {e}", exc_info=True)
             raise
 
-class PineconeEngine:
+class PineconeEngine(VectorDatabaseEngine):
     """Vector database engine using Pinecone for similarity search and document storage.
     
     This class provides methods to store document embeddings and perform similarity searches
@@ -67,8 +68,17 @@ class PineconeEngine:
         ValueError: If configuration is invalid
     """
     def __init__(self, config: Optional[PineconeConfig] = None):
+        super().__init__()
         try:
-            self._config = config or PineconeConfig.from_config(Config().get('rag.vector_db.pinecone'))
+            # Check if config in [None, PineconeConfig]
+            if config is None:
+                self._config = PineconeConfig.from_config(Config().get('rag.vector_db.pinecone'))
+            elif isinstance(config, PineconeConfig):
+                self._config = config
+            else:
+                logger.error(f"Expected PineconeConfig but got: {type(config)}")
+                raise 
+
             self._pinecone = Pinecone(api_key=require_env_var('PINECONE_API_KEY'))
             logger.debug("Successfully connected to Pinecone")
 
@@ -79,14 +89,7 @@ class PineconeEngine:
             raise
 
     def _create_index(self) -> PineconeIndex:
-        """Create or retrieve existing Pinecone index.
-        
-        Returns:
-            PineconeIndex: Pinecone index instance
-            
-        Raises:
-            RuntimeError: If index creation or retrieval fails
-        """
+        """Create or retrieve existing Pinecone index."""
         try:
             # Check if index already exists
             existing_indexes = [index['name'] for index in self._pinecone.list_indexes()]
@@ -204,18 +207,6 @@ class PineconeEngine:
     def search(self, 
                query_embeddings: np.ndarray, 
                n_extracted_docs: int = 5) -> List[List[RagDocument]]:
-        """Search for similar documents using query embeddings.
-        
-        Args:
-            query_embeddings (np.ndarray): Query embedding(s) of shape (n_queries, embedding_dim) or (embedding_dim,)
-            n_extracted_docs (int): Number of top similar documents to retrieve per query
-            
-        Returns:
-            List[List[RagDocument]]: List of lists containing top-k RagDocument objects for each query
-            
-        Raises:
-            ValueError: If query embeddings have invalid dimensions
-        """
         try:
             query_embeddings = np.array(query_embeddings)
             

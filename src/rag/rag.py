@@ -4,7 +4,7 @@ import numpy as np
 from torch import Tensor
 
 from config import Config
-from chatbot.types import RagDocument
+from common.types import RagDocument
 from .vector_db import VectorDatabase
 from .vector_db.engines import PineconeEngine, PineconeConfig
 
