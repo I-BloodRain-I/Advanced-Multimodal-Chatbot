@@ -24,7 +24,7 @@ class StreamSubscriber:
                  host: str = 'localhost', 
                  port: int = 6379):
         self.manager = manager or ConnectionManager()
-        self.redis = AsyncRedis(host=host, port=port, decode_response=True)
+        self.redis = AsyncRedis(host=host, port=port, decode_responses=True)
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def subscribe(self, conv_id: str):

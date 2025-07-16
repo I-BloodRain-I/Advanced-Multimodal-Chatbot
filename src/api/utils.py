@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        redis = AsyncRedis(host=cfg.get('host'), port=cfg.get('port'), decode_response=False)
+        redis = AsyncRedis(host=cfg.get('host'), port=cfg.get('port'), decode_responses=False)
         await redis.connect()
         logger.info("Redis connection established.")
 
