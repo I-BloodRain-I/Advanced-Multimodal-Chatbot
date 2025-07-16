@@ -59,17 +59,13 @@ class StreamSubscriber:
                             await manager.send_message(
                                 json.dumps({"type": "end"}), conv_id
                             )
-                            break
                         else:
                             # Forward content to WebSocket client
                             await manager.send_message(
                                 json.dumps({"type": "stream", "content": content}), conv_id
                             )
-            except asyncio.CancelledError:
-                logger.info(f"Forwarding task cancelled for conv_id: {conv_id}")
             except Exception as e:
                 logger.error(f"Error forwarding messages for conv_id: {conv_id}: {e}", exc_info=True)
-            finally:
                 try:
                     await pubsub.unsubscribe(conv_id)
                     await pubsub.close()

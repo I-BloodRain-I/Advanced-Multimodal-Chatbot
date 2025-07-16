@@ -68,7 +68,7 @@ def load_listener(manager: Optional[ConnectionManager] = None) -> StreamSubscrib
     Returns:
         StreamSubscriber: An instance set up to listen to Redis pub/sub streams.
     """
-    cfg = Config().get('server')
+    cfg = Config().get('cache.redis')
     return StreamSubscriber(manager=manager, host=cfg.get('host'), port=cfg.get('port'))
 
 
