@@ -66,7 +66,7 @@ class RAG:
         normalized = self._normalize_embeddings(embeddings)
         return self.vector_db.search(normalized, n_extracted_docs=self.n_extracted_docs)
     
-    def add_context(self, messages_batch: List[MessageHistory], embeddings: np.ndarray):
+    def add_context(self, messages_batch: List[MessageHistory], embeddings: EmbeddingArray):
         """
         Enriches the latest message in each conversation with relevant document context.
 
@@ -75,7 +75,7 @@ class RAG:
 
         Args:
             messages_batch (List[MessageHistory]): A batch of message histories.
-            embeddings (np.ndarray): Query embeddings to retrieve relevant documents.
+            embeddings (EmbeddingArray): Query embeddings to retrieve relevant documents.
         """
         try:
             # Normalize the input embeddings to ensure consistency in similarity search

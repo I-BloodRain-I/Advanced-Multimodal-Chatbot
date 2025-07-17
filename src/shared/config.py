@@ -9,7 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 class Config:
-    _instance: "Config" = None
+    """
+    Singleton configuration class that loads and manages application settings from a YAML file.
+
+    This class ensures a single configuration instance is used across the application.
+    It loads from a YAML file specified by environment variables and provides methods
+    to access, modify, validate, and persist configuration data.
+    """
+    _instance = None
     _config_data: Dict[str, Any] = None
     _path: Path = None
 
@@ -109,7 +116,7 @@ class Config:
                 }
             },
             "dispatcher": {
-                "sleep_seconds": 1
+                "sleep_seconds": 1.0
             },
             "task_classifier": {
                 "device_name": "cuda",
