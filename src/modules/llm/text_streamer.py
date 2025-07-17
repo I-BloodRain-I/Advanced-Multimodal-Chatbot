@@ -101,7 +101,6 @@ class TextStreamer:
         Yields:
             str: Next generated token.
         """
-        # [Код подготовки данных такой же, как выше]
         try:    
             formatted_prompt = PromptTransformer.format_messages_to_str(messages, self.tokenizer)
             logger.debug(f"Formatted prompt length: {len(formatted_prompt)} characters")
