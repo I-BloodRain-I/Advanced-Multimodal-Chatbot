@@ -1,0 +1,22 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+faiss_cpu==1.11.0
+fastapi==0.116.1
+nltk==3.9.1
+numpy==2.3.1
+pandas==2.3.1
+Pillow==11.3.0
+pinecone==7.3.0
+pydantic==2.11.7
+python-dotenv==1.1.1
+PyYAML==6.0.2
+Requests==2.32.4
+scikit_learn==1.7.0
+sentence_transformers==5.0.0
+torch==2.7.0
+torchmetrics==1.7.3
+torchvision==0.22.0
+tqdm==4.67.1
+transformers==4.53.0
+uvicorn==0.35.0
+websockets==15.0.1
