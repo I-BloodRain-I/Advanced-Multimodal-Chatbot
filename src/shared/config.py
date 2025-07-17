@@ -29,8 +29,7 @@ class Config:
 
     @staticmethod
     def _get_config_path() -> Path:
-        root_dir = Path(require_env_var("ROOT_DIR"))
-        return root_dir / require_env_var("CONFIG_PATH")
+        return Path(require_env_var("CONFIG_PATH"))
 
     @classmethod
     def _load_config(cls):
@@ -44,14 +43,11 @@ class Config:
 
     @classmethod
     def _initialize_default_config(cls):
-        root_dir = Path(require_env_var("ROOT_DIR"))
-
         cls._config_data = {
-            "root_dir":    str(root_dir),
-            "data_dir":    str(root_dir / "data"),
-            "logging_dir": str(root_dir / "logs"),
-            "models_dir":  str(root_dir / "models"),
-            "output_dir":  str(root_dir / "output"),
+            "data_dir":    "data",
+            "logging_dir": "logs",
+            "models_dir":  "models",
+            "output_dir":  "output",
             "embedder": {
                 "model_name": "all-mpnet-base-v2",
                 "device_name": "cuda"
@@ -79,7 +75,7 @@ class Config:
                 "prompt_format": "{context}\\n{prompt}",
                 "vector_db": {
                     "faiss": {
-                        "dir": str(root_dir / "vector_db"),
+                        "dir": "vector_db",
                         "dimension": 768,
                         "index_type": "auto",
                         "device": "cuda",
@@ -137,7 +133,7 @@ class Config:
     @classmethod
     def _validate_config(cls):
         required_keys = [
-            "root_dir", "data_dir", "logging_dir", "models_dir", "output_dir",
+            "data_dir", "logging_dir", "models_dir", "output_dir",
             "embedder", "llm", "semantic_chunker", "rag", "cache", 
             "dispatcher", "task_classifier", "server"
         ]
