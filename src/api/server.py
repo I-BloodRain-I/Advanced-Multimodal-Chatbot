@@ -3,7 +3,7 @@ import json
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from common.logging import setup_logging
+from common.utils import setup_logging
 setup_logging()
 
 from shared.config import Config
