@@ -6,6 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 from .enums import TaskType
 
+# Alias for all types of embeddings
+class EmbeddingArray: TypeAlias = Union[List[float], List[List[float]], NDArray, Tensor]
+
 class Message(BaseModel):
     """
     Represents a single message in a conversation.
