@@ -13,6 +13,8 @@ def get_torch_device(device: str) -> torch.device:
     Returns:
         A torch.device object corresponding to the chosen or available device.
     """
+    if isinstance(device, torch.device):
+        return device
     # Use 'cpu' if explicitly requested, otherwise prefer 'cuda' if available
     return torch.device(device) if device == 'cpu' else (
                 torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')

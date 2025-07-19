@@ -65,7 +65,7 @@ class TextStreamer:
         """
         logger.debug("Creating stopping criteria")
 
-        stop_sequences = ["<|im_end|>", "<|endoftext|>", "</s>", "<|end|>"]
+        stop_sequences = ["<|im_end|>", "<|endoftext|>", "<|end|>"]
         stop_token_ids = []
 
         if hasattr(self.tokenizer, 'chat_template') and self.tokenizer.chat_template:    

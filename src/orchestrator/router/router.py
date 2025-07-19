@@ -1,12 +1,11 @@
-import torch
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
-from core.entities.types import EmbeddingArray
-
-from .model import TaskClassifier
 from numpy import ndarray
 
-from core.entities import TaskType
+import torch
+from core.entities import EmbeddingArray, TaskType
+from .model import TaskClassifier
+
 
 class Router:
     """

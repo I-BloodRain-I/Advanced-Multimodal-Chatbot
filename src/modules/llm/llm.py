@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import AsyncGenerator, List, Union
 import logging
 
@@ -5,6 +7,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 
 from core.entities.types import MessageHistory
+from shared.config import Config
 from shared.text_processing.prompt_transformer import PromptTransformer
 from shared.utils import get_torch_device
 from .text_streamer import TextStreamer
@@ -14,12 +17,16 @@ logger = logging.getLogger(__name__)
 
 class LLM:
     """
-    Singleton class for managing a causal language model instance with support for
-    quantization, configurable generation parameters, and streaming output.
+    Singleton class for managing a causal language model (LLM) with support for
+    quantized loading, configurable generation parameters, and both standard and
+    streaming generation interfaces.
     
     Args:
-        max_new_tokens (Optional[int]): Maximum number of tokens to generate.
-        temperature (Optional[float]): Sampling temperature.
+        model_name (str): Hugging Face model identifier or local path to load the model.
+        dtype (str): Desired precision format. Supported values: 'int4', 'int8', 'bf16', 'fp16', 'fp32'.
+        max_new_tokens (int): Maximum number of tokens to generate per response.
+        temperature (float): Sampling temperature to control output randomness.
+        device_name (str): Preferred device for inference, e.g., 'cuda', 'cpu'.
     """
 
     _instance = None
@@ -36,10 +43,10 @@ class LLM:
                  max_new_tokens: int = 1024,
                  temperature: float = 0.7,
                  device_name: str = 'cuda'):
+        if self._initialized:
+            return # Avoid reinitializing 
 
-        if hasattr(self, '_initialized') and self._initialized:
-            return
-
+        self._models_dir = Path(Config.get('models_dir'))
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
 
@@ -47,6 +54,7 @@ class LLM:
             self.device = get_torch_device(device_name)
             self.model = self._load_model(model_name, dtype)
             self.tokenizer = self._load_tokenizer(model_name)
+            self._save_model_and_tokenizer(model_name)  # Save for future offline use
             logger.info("LLM model and tokenizer loaded successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize LLM: {e}", exc_info=True)
@@ -91,12 +99,22 @@ class LLM:
             raise Exception(f"Invalid dtype in config: {model_dtype_str}")
 
         try:
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name, 
-                quantization_config=quant_config,
-                torch_dtype=torch_dtype,
-                device_map=self.device
-            )
+            model_path = self._models_dir / model_name
+            if model_path.exists():
+                model = AutoModelForCausalLM.from_pretrained(
+                    str(model_path), 
+                    quantization_config=quant_config,
+                    torch_dtype=torch_dtype,
+                    device_map=self.device,
+                    local_files_only=True
+                )
+            else:
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_name, 
+                    quantization_config=quant_config,
+                    torch_dtype=torch_dtype,
+                    device_map=self.device
+                )
             model.eval()
             return model
         except Exception as e:
@@ -108,7 +126,12 @@ class LLM:
         Loads the tokenizer and ensures it has a pad token.
         """
         try:
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+            tokenizer_path = self._models_dir / tokenizer_name
+            if tokenizer_path.exists():
+                tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_path), local_files_only=True)
+            else:
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+
             if tokenizer.pad_token is None:
                 logger.warning("Tokenizer has no pad_token; using eos_token as pad_token.")
                 tokenizer.pad_token = tokenizer.eos_token
@@ -116,6 +139,31 @@ class LLM:
         except Exception as e:
             logger.error(f"Error loading tokenizer from path {tokenizer_name}: {e}", exc_info=True)
             raise
+
+    def _save_model_and_tokenizer(self, model_name: str):
+        """
+        Saves the model and tokenizer to disk if not already saved.
+
+        Removes quantization_config from config.json to allow flexibility on reload.
+        """
+        try:
+            model_path = self._models_dir / model_name
+            if not model_path.exists():
+                self.model.save_pretrained(str(model_path), safe_serialization=True)
+                self.tokenizer.save_pretrained(str(model_path), safe_serialization=True)
+
+                # Remove quantization_config so it can be overridden during loading
+                config_path = model_path / 'config.json'  
+                if config_path.exists():
+                    with open(config_path, 'r+') as f:
+                        cfg = json.load(f)
+                        if 'quantization_config' in cfg:
+                            cfg.pop('quantization_config')
+                            f.seek(0)
+                            json.dump(cfg, f, indent=4)
+                            f.truncate()
+        except Exception:
+            logger.error("Failed to save model and tokenizer.", exc_info=True)
 
     def generate(self, messages: MessageHistory, return_tokens: bool = False) -> Union[str, torch.Tensor]:
         """
