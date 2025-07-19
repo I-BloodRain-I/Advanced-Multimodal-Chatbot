@@ -1,5 +1,5 @@
-from typing import Dict
 import logging
+from typing import Union
 
 from fastapi import WebSocket
 
@@ -45,24 +45,26 @@ class ConnectionManager:
             del self.active_connections[conv_id]
             logger.info(f"WebSocket connection removed for conv_id: {conv_id}")
     
-    async def send_message(self, message: str, conv_id: str) -> bool:
+    async def send_message(self, message: Union[str, bytes], conv_id: str) -> bool:
         """
         Send a message to the WebSocket client associated with the given conv_id.
 
         Args:
-            message (str): The message to send.
+            message (Union[str, bytes]): The message to send.
             conv_id (str): The recipient's conversation ID.
 
         Returns:
             bool: True if the message was sent successfully, False otherwise.
         """
-        websocket = self.active_connections.get(conv_id)
+        websocket: WebSocket = self.active_connections.get(conv_id)
         if not websocket:
             logger.warning(f"Attempted to send message to inactive conv_id: {conv_id}")
             return False
-        
         try:
-            await websocket.send_text(message)
+            if isinstance(message, str):
+                await websocket.send_text(message)
+            else:
+                await websocket.send_bytes(message)
             return True
         except Exception as e:
             # Remove faulty connection if sending fails

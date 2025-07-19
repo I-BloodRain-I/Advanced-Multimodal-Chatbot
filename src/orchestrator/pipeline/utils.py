@@ -1,6 +1,12 @@
 from typing import Dict, List, Optional
 from collections import defaultdict
 import logging
+import base64
+import io
+
+import torch
+import torchvision.transforms.functional as TF
+from PIL import Image
 
 from core.entities import TaskType, Message, TaskBatch
 from core.entities.types import EmbeddingArray
@@ -56,3 +62,34 @@ def group_conversations_by_task(
             embeddings=batch["embeddings"]
         ) for task, batch in batches.items()
     }
+
+
+def tensor_to_base64(tensor: torch.Tensor) -> str:
+    """
+    Converts a PyTorch image tensor to a base64-encoded PNG string.
+
+    Supports both channel-first ([C, H, W]) and channel-last ([H, W, C]) tensor formats,
+    assuming 1 or 3 channels (grayscale or RGB).
+
+    Args:
+        tensor (torch.Tensor): Image tensor to convert. Must be in either [C, H, W] or [H, W, C] format,
+                               with 1 or 3 channels.
+
+    Returns:
+        str: Base64-encoded PNG representation of the image.
+    """
+    if tensor.ndim == 3 and tensor.shape[0] in [1, 3]:  # [C, H, W]
+        image = TF.to_pil_image(tensor)
+    elif tensor.ndim == 3 and tensor.shape[2] in [1, 3]:  # [H, W, C]
+        # Convert channel-last tensor to PIL image (assumes values are in [0, 1] range)
+        image = Image.fromarray((tensor.numpy() * 255).astype('uint8'))
+    else:
+        raise ValueError("Unsupported tensor shape")
+
+    # Encode the image as PNG in memory
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+
+    # Convert image bytes to base64 string
+    img_bytes = buffered.getvalue()
+    return base64.b64encode(img_bytes).decode('utf-8')

@@ -5,7 +5,6 @@ import time
 import json
 from typing import AsyncGenerator, Optional, List, Dict
 
-from api.stream_subscriber import StreamSubscriber
 from core.entities.types import ConversationBatch, Message, AgentResponse
 from orchestrator.pipeline import Pipeline
 from shared.cache.redis import Redis
@@ -119,7 +118,6 @@ class PromptDispatcher:
 
         return ConversationBatch(conv_ids=conv_ids, histories=histories)
     
-    # TODO: Implement full text response
     def _send_agent_responses(self, responses: List[AgentResponse]):
         """
         Sends a list of agent-generated responses back to the frontend via Redis.
@@ -129,10 +127,15 @@ class PromptDispatcher:
         def _send_async(responses):
             async def _async_main():
                 try:
-                    await asyncio.gather(*[
-                        self._stream_response(resp.conv_id, resp.content)
-                        for resp in responses
-                    ])
+                    tasks = []
+                    for resp in responses:
+                        if resp.type == 'stream':
+                            # Stream tokens for streaming response
+                            tasks.append(self._stream_response(resp.conv_id, resp.content))
+                        else:
+                            # Send full message or image in one go
+                            tasks.append(self._response(resp.conv_id, resp.type, resp.content))
+                    await asyncio.gather(*tasks)
                 except Exception as e:
                     logger.error(f"Failed to launch async agent responses.", exc_info=True)
             
@@ -156,8 +159,22 @@ class PromptDispatcher:
         try:
             async for token in generator:
                 # Stream each token
-                self._redis.publish(conv_id, token)
+                self._redis.publish(conv_id, json.dumps({"type": "stream", "content": token}))
             # Signal end of stream
-            self._redis.publish(conv_id, StreamSubscriber.END_MESSAGE)      
+            self._redis.publish(conv_id, json.dumps({"type": "end_stream"}))      
         except Exception as e: 
             logger.error(f"Error streaming response for conversation {conv_id}", exc_info=True)
+
+    async def _response(self, conv_id: str, type: str, content: str):
+        """
+        Sends a complete response (text or image) to the client via Redis.
+
+        Args:
+            conv_id (str): Unique conversation ID to publish to.
+            type (str): Response type ("text", "image", etc.).
+            content (str): The actual content to send.
+        """
+        try:
+            self._redis.publish(conv_id, json.dumps({"type": type, "content": content}))
+        except Exception as e:
+            logger.error(f"Error sending response for conversation {conv_id}", exc_info=True)

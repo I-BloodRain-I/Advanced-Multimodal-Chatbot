@@ -1,5 +1,4 @@
 import asyncio
-import json
 from typing import Dict, Optional
 import logging
 
@@ -16,15 +15,12 @@ class StreamSubscriber:
     Subscribes to a Redis channel for each conversation and forwards streamed
     messages to the appropriate WebSocket connection via the ConnectionManager.
     """
-
-    END_MESSAGE = "[[END]]"
-
     def __init__(self, 
                  manager: Optional[ConnectionManager] = None, 
                  host: str = 'localhost', 
                  port: int = 6379):
         self.manager = manager or ConnectionManager()
-        self.redis = AsyncRedis(host=host, port=port, decode_responses=True)
+        self.redis = AsyncRedis(host=host, port=port, decode_responses=False)
         self.tasks: Dict[str, asyncio.Task] = {}
 
     async def subscribe(self, conv_id: str):
@@ -49,21 +45,8 @@ class StreamSubscriber:
             try:
                 async for msg in pubsub.listen():
                     if msg['type'] == 'message':
-
-                        content = msg['data']
-                        if isinstance(content, bytes):
-                            content = content.decode()
-
-                        # [[END]] indicates end of streaming
-                        if content == self.END_MESSAGE:
-                            await manager.send_message(
-                                json.dumps({"type": "end"}), conv_id
-                            )
-                        else:
-                            # Forward content to WebSocket client
-                            await manager.send_message(
-                                json.dumps({"type": "stream", "content": content}), conv_id
-                            )
+                        # Forward content to WebSocket client
+                        await manager.send_message(msg['data'], conv_id)
             except Exception as e:
                 logger.error(f"Error forwarding messages for conv_id: {conv_id}: {e}", exc_info=True)
                 try:

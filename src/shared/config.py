@@ -47,7 +47,6 @@ class Config:
             "data_dir":    "data",
             "logging_dir": "logs",
             "models_dir":  "models",
-            "output_dir":  "output",
             "embedder": {
                 "model_name": "all-mpnet-base-v2",
                 "device_name": "cuda"
@@ -59,6 +58,14 @@ class Config:
                 "temperature": 0.7,
                 "device_name": "cuda",
                 "stream_output": True
+            },
+            "image_generator": {
+                "model_name": "dreamlike-art/dreamlike-photoreal-2.0",
+                "device_name": "cuda",
+                "dtype": "fp16",
+                "scheduler_type": "euler_ancestral",
+                "use_refiner": False,
+                "refiner_name": "stabilityai/stable-diffusion-xl-refiner-1.0"
             },
             "semantic_chunker": {
                 "model_name": "all-mpnet-base-v2",
@@ -133,7 +140,7 @@ class Config:
     @classmethod
     def _validate_config(cls):
         required_keys = [
-            "data_dir", "logging_dir", "models_dir", "output_dir",
+            "data_dir", "logging_dir", "models_dir", "image_generator",
             "embedder", "llm", "semantic_chunker", "rag", "cache", 
             "dispatcher", "task_classifier", "server"
         ]

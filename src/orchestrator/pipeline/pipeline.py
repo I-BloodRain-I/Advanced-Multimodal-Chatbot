@@ -4,12 +4,13 @@ import logging
 import torch
 
 from core.entities.types import AgentResponse, TaskBatch
+from modules.image_generation import ImageGenerator
 from modules.llm import LLM
 from modules.rag import RAG, VectorDatabaseBase
-from orchestrator.pipeline.utils import group_conversations_by_task
 from orchestrator.router import Router
 from shared.embedders import Embedder
 from shared.text_processing import PromptTransformer
+from .utils import group_conversations_by_task, tensor_to_base64
 
 from core.entities import ConversationBatch, TaskType
 
@@ -25,6 +26,7 @@ class Pipeline:
     - Router: Classifies each conversation into a task type.
     - RAG: Retrieves documents and formats prompts for LLM input.
     - LLM: Generates responses from a language model.
+    - ImageGenerator: Creates image outputs from prompts when needed.
 
     Args:
         router_model (torch.nn.Module): Pretrained classifier for task routing.
@@ -39,6 +41,12 @@ class Pipeline:
         llm_temperature (float): Sampling temperature for the LLM.
         llm_device_name (str): Device used for running the LLM (e.g., 'cuda').
         llm_stream_output (bool): Whether to stream the LLM output incrementally.
+        img_model_name (str): Model name for the image generation model.
+        img_device_name (str): Device for image generation (e.g., 'cuda').
+        img_dtype (str): Data type for image model (e.g., 'fp16').
+        img_scheduler_type (str): Type of scheduler to use during image generation.
+        img_use_refiner (bool): Whether to use an additional refiner pipeline.
+        img_refiner_name (str): Model name of the image refiner pipeline.
     """
     _instance = None
 
@@ -60,12 +68,18 @@ class Pipeline:
         llm_max_new_tokens: int = 1024,
         llm_temperature: float = 0.7,
         llm_device_name: str = 'cuda',
-        llm_stream_output: bool = False
+        llm_stream_output: bool = False,
+        img_model_name: str = '',
+        img_device_name: str = 'cuda',
+        img_dtype: str = 'fp16',
+        img_scheduler_type: str = 'euler_ancestral',
+        img_use_refiner: bool = False,
+        img_refiner_name: str = 'stabilityai/stable-diffusion-xl-refiner-1.0'
     ):
         if hasattr(self, '_initialized') and self._initialized:
-            return
+            return  # Avoid reinitialization
         
-         # Instantiate core components
+        # Instantiate core components
         self.embedder = Embedder(model_name=embed_model_name, device_name=embed_device_name)
         self.router = Router(model=router_model)
         self.rag = RAG(
@@ -79,6 +93,14 @@ class Pipeline:
             max_new_tokens=llm_max_new_tokens,
             temperature=llm_temperature,
             device_name=llm_device_name
+        )
+        self.image_generator = ImageGenerator(
+            model_name=img_model_name,
+            device=img_device_name,
+            dtype=img_dtype,
+            scheduler_type=img_scheduler_type,
+            use_refiner=img_use_refiner,
+            refiner_name=img_refiner_name
         )
         self.stream_output = llm_stream_output
         self._initialized = True
@@ -130,6 +152,8 @@ class Pipeline:
 
             if task_type == TaskType.RAG:
                 responses.extend(self._handle_rag_task(group))
+            if task_type == TaskType.IMAGE_GEN:
+                responses.extend(self._handle_img_gen_task(group))
             else:
                 logger.warning(f"Unsupported task type: {task_type.name}")
 
@@ -151,6 +175,21 @@ class Pipeline:
         # Create AgentResponse objects for each output
         return [
             AgentResponse(conv_id=conv_id, type=response_type, content=content)
+            for conv_id, content in zip(group.conv_ids, outputs)
+        ]
+
+    def _handle_img_gen_task(self, group: TaskBatch) -> List[AgentResponse]:
+        """Executes image generation logic using prompts from user messages."""
+        # Extract user prompts from the conversation history
+        users_messages = PromptTransformer.get_messages_by_role(group.histories, role='user')
+        prompts = PromptTransformer.get_content_from_messages(users_messages)
+
+        # Generate images and convert them to base64
+        imgs_tensor = self.image_generator.generate(prompts=prompts)
+        outputs = [tensor_to_base64(img_tensor) for img_tensor in imgs_tensor]
+        
+        return [
+            AgentResponse(conv_id=conv_id, type="image", content=content)
             for conv_id, content in zip(group.conv_ids, outputs)
         ]
 

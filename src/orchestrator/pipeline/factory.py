@@ -29,6 +29,7 @@ class PipelineFactory:
         cls._load_router_args(cfg, pipeline_args)
         cls._load_llm_args(cfg, pipeline_args)
         cls._load_rag_args(cfg, pipeline_args)
+        cls._load_img_gen_args(cfg, pipeline_args)
 
         return Pipeline(**pipeline_args)
 
@@ -75,4 +76,16 @@ class PipelineFactory:
             'rag_vector_db': vector_db,
             'rag_n_extracted_docs': cfg_rag.get('n_extracted_docs'),
             'rag_prompt_format': cfg_rag.get('prompt_format'),
+        })
+
+    @classmethod
+    def _load_img_gen_args(cls, cfg: Config, args: Dict[str, Any]):
+        cfg_img = cfg.get('image_generator')
+        args.update({
+            'img_model_name': cfg_img.get('model_name'),
+            'img_device_name': cfg_img.get('device_name'),
+            'img_dtype': cfg_img.get('dtype'),
+            'img_scheduler_type': cfg_img.get('scheduler_type'),
+            'img_use_refiner': cfg_img.get('use_refiner'),
+            'img_refiner_name': cfg_img.get('refiner_name')
         })

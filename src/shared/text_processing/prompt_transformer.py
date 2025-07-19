@@ -103,6 +103,38 @@ class PromptTransformer:
         return [cls.format_messages_to_str(message, tokenizer) for message in messages_batch]
     
     @classmethod
+    def get_messages_by_role(cls, messages_batch: List[MessageHistory], role: str) -> List[MessageHistory]:
+        """
+        Filters a batch of message histories, returning only messages with the specified role.
+
+        Args:
+            messages_batch (List[MessageHistory]): A list of message histories, where each history is a list of Message objects.
+            role (str): The role to filter by ('user', 'assistant', or 'system').
+
+        Returns:
+            List[MessageHistory]: A list of message histories with only messages matching the given role.
+        """
+        if role not in ['user', 'assistant', 'system']:
+            raise
+        return [[message for message in messages if message.role == role] 
+                for messages in messages_batch]
+
+    @classmethod
+    def get_content_from_messages(cls, messages_batch: List[MessageHistory], separator: str = '\n'):
+        """
+        Extracts and concatenates message content from a batch of message histories.
+
+        Args:
+            messages_batch (List[MessageHistory]): A list of message histories (already filtered if needed).
+            separator (str): String used to join message contents (default is newline).
+
+        Returns:
+            List[str]: A list of concatenated message contents per conversation.
+        """
+        return [separator.join([message.content for message in messages])
+                for messages in messages_batch]
+
+    @classmethod
     def convert_messages_to_dict(cls, messages_batch: List[MessageHistory]) -> List[List[Dict[str, str]]]:
         """
         Converts a batch of message histories into lists of dictionaries for serialization.
