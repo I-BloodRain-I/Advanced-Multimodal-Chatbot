@@ -14,7 +14,7 @@ services:
   server:
     build: .
     container_name: ai_server
-    command: ["bash", "scripts/run_server.sh"]
+    command: ["python", "-m", "src.api.server"]
     ports:
       - "8000:8000"
     depends_on:
@@ -28,7 +28,7 @@ services:
   app:
     build: .
     container_name: ai_app
-    command: ["bash", "scripts/run_app.sh"]
+    command: ["python", "main.py"]
     depends_on:
       - redis
     env_file:
