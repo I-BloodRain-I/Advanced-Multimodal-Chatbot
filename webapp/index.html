@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorAlix Chat</title>
+    
+    <!-- External CSS & Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- External JS libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tensoralix: {
+                            primary: '#6366f1',
+                            dark: '#1e1b4b',
+                            light: '#e0e7ff',
+                            accent: '#8b5cf6',
+                            secondary: '#0ea5e9'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-in': 'slideIn 0.4s ease-out forwards'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: 0 },
+                            '100%': { opacity: 1 }
+                        },
+                        slideIn: {
+                            '0%': { opacity: 0, transform: 'translateX(20px)' },
+                            '100%': { opacity: 1, transform: 'translateX(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="app.js"></script>
+</head>
+<body class="h-full flex dark:bg-gray-900 transition-colors duration-200">
+    <div id="page-loader" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900">
+        <div class="text-center animate-fade-in-up">
+            <div class="text-5xl text-white font-bold mb-4">TensorAlix</div>
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar w-64 dark:bg-gray-800 dark:border-gray-700 flex flex-col h-full hidden md:flex">
+        <div class="p-5">
+            <div class="flex items-center space-x-3 mb-8">
+                <div class="w-10 h-10 rounded-full bg-tensoralix-primary flex items-center justify-center text-white glow">
+                    <i class="fas fa-robot text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold dark:text-white">TensorAlix</h1>
+            </div>
+            
+            <button id="new-chat" class="w-full py-3 px-4 bg-tensoralix-primary text-white rounded-xl flex items-center justify-center mb-6 hover:bg-tensoralix-dark transition-colors">
+                <i class="fas fa-plus mr-2"></i> New Chat
+            </button>
+            
+            <div class="text-xs dark:text-gray-400 uppercase tracking-wider mb-2">Recent Chats</div>
+            <div class="space-y-1">
+            </div>
+        </div>
+        
+        <div class="mt-auto p-5 dark:border-gray-700">
+            <button class="w-full py-2 px-4 dark:bg-gray-700 dark:text-gray-200 rounded-lg flex items-center justify-center dark:hover:bg-gray-600 transition-colors mb-3">
+                <i class="fas fa-cog mr-2"></i> Settings
+            </button>
+            
+            <div class="text-xs text-center dark:text-gray-400 mt-4">
+                TensorAlix v1.0.0
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="gradient-bg flex flex-col flex-1 h-full">
+        <!-- Mobile header -->
+        <header class="py-4 px-6 dark:border-gray-700 flex items-center justify-between backdrop-blur-sm dark:bg-gray-800/80 sticky top-0 z-10 md:hidden">
+            <div class="flex items-center space-x-3">
+                <button id="mobile-menu" class="p-2 rounded-lg dark:hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-bars dark:text-gray-300"></i>
+                </button>
+                <div>
+                    <h1 class="text-xl font-bold dark:text-white">TensorAlix</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat area -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+
+        </div>
+
+        <!-- Input area -->
+        <div class="p-4 dark:border-gray-700 dark:bg-gray-800/50 backdrop-blur-sm">
+            <div id="attachment-previews" class="flex flex-wrap gap-2 mb-3"></div>
+            <div class="relative flex items-center">
+                <button id="attachment-button" class="absolute left-3 dark:text-gray-400 dark:hover:text-tensoralix-light transition-colors">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <div id="attachment-menu" class="absolute left-0 bottom-full mb-2 hidden dark:bg-gray-800 rounded-xl shadow-lg dark:border-gray-700 z-10 w-40 overflow-hidden">
+                    <button class="w-full text-left px-4 py-3 text-sm dark:text-gray-300 dark:hover:bg-gray-700 transition-colors flex items-center">
+                        <i class="fas fa-file mr-3 text-tensoralix-primary"></i> Document
+                    </button>
+                    <button class="w-full text-left px-4 py-3 text-sm dark:text-gray-300 dark:hover:bg-gray-700 transition-colors flex items-center">
+                        <i class="fas fa-image mr-3 text-tensoralix-primary"></i> Image
+                    </button>
+                    <button class="w-full text-left px-4 py-3 text-sm dark:text-gray-300 dark:hover:bg-gray-700 transition-colors flex items-center">
+                        <i class="fas fa-code mr-3 text-tensoralix-primary"></i> Code
+                    </button>
+                </div>
+                <textarea id="message-input" rows="1" placeholder="Message TensorAlix..." 
+                    class="w-full pl-10 pr-16 py-3 rounded-full dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-tensoralix-primary resize-none overflow-hidden max-h-32 transition-all duration-200"
+                    style="min-height: 50px;"></textarea>
+                <div class="absolute right-3 flex space-x-2">
+                    <button id="voice-button" class="w-10 h-10 rounded-full dark:bg-gray-700 dark:text-gray-300 flex items-center justify-center dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button id="send-button" class="w-10 h-10 rounded-full bg-tensoralix-primary text-white flex items-center justify-center hover:bg-tensoralix-dark transition-colors glow pulse">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-between items-center mt-3 px-2">
+                <div class="text-xs dark:text-gray-400 flex items-center">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <span style>TensorAlix may produce inaccurate information.</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button class="text-xs dark:text-tensoralix-light hover:underline">Privacy</button>
+                    <button class="text-xs dark:text-tensoralix-light hover:underline">Terms</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile sidebar overlay -->
+    <div id="mobile-sidebar" class="fixed inset-0 bg-black/50 z-50 hidden md:hidden">
+        <div class="absolute left-0 top-0 h-full w-64 dark:bg-gray-800 p-5 transform transition-transform duration-300 -translate-x-full">
+            <div class="flex justify-between items-center mb-8">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-tensoralix-primary flex items-center justify-center text-white">
+                        <i class="fas fa-robot text-xl"></i>
+                    </div>
+                    <h1 class="text-xl font-bold dark:text-white">TensorAlix</h1>
+                </div>
+                <button id="close-mobile-menu" class="p-2 rounded-lg dark:hover:bg-gray-700">
+                    <i class="fas fa-times dark:text-gray-300"></i>
+                </button>
+            </div>
+            
+            <button id="new-chat-mobile" class="w-full py-3 px-4 bg-tensoralix-primary text-white rounded-xl flex items-center justify-center mb-6 hover:bg-tensoralix-dark transition-colors">
+                <i class="fas fa-plus mr-2"></i> New Chat
+            </button>
+            
+            <div class="text-xs dark:text-gray-400 uppercase tracking-wider mb-2">Recent Chats</div>
+            <div class="space-y-1">
+            </div>
+            
+            <div class="mt-auto pt-5 dark:border-gray-700">
+                <button class="w-full py-2 px-4 dark:bg-gray-700 dark:text-gray-200 rounded-lg flex items-center justify-center dark:hover:bg-gray-600 transition-colors mb-3">
+                    <i class="fas fa-cog mr-2"></i> Settings
+                </button>
+                <div class="text-xs text-center dark:text-gray-400 mt-4">
+                    TensorAlix v2.1.5
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

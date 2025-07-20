@@ -152,7 +152,7 @@ class Pipeline:
 
             if task_type == TaskType.RAG:
                 responses.extend(self._handle_rag_task(group))
-            if task_type == TaskType.IMAGE_GEN:
+            elif task_type == TaskType.IMAGE_GEN:
                 responses.extend(self._handle_img_gen_task(group))
             else:
                 logger.warning(f"Unsupported task type: {task_type.name}")

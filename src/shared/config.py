@@ -114,7 +114,7 @@ class Config:
             },
             "cache": {
                 "redis": {
-                    "host": "localhost",
+                    "host": "redis",
                     "port": 6379
                 }
             },
@@ -128,7 +128,7 @@ class Config:
                 "n_classes": 3
             },
             "server": {
-                "host": "127.0.0.1",
+                "host": "0.0.0.0",
                 "port": 8000
             }
         }
