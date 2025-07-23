@@ -1,0 +1,63 @@
+name: TensorAlix CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+
+      - name: Set up Docker Compose
+        run: |
+          sudo apt install -y docker-ce docker-ce-cli docker-compose-plugin
+
+      - name: Create .env file for testing
+        run: |
+          echo "CONFIG_PATH=config.yaml" >> .env
+          echo "PYTHONPATH=src" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+          echo "PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}" >> .env
+
+      - name: Build and start containers
+        run: docker compose --profile cpu up -d --build
+
+      - name: Wait for Redis to be healthy
+        run: |
+          for i in {1..10}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' redis_service)
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Redis is healthy"
+              break
+            fi
+            echo "Waiting for Redis to be healthy..."
+            sleep 5
+          done
+
+      - name: Run tests in app-cpu container
+        run: |
+          docker compose run --rm app-cpu python -m pytest tests -v
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose --profile cpu down --volumes --remove-orphans

@@ -40,8 +40,23 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
+            - capabilities: [gpus]
     runtime: nvidia
     environment:
       NVIDIA_VISIBLE_DEVICES: all
+    profiles:
+      - gpu
 
+  app-cpu:
+    build: .
+    container_name: ai_app_cpu
+    command: ["python", "main.py"]
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    restart: always
+    profiles:
+      - cpu
