@@ -56,4 +56,8 @@ def setup_logging(level: int = logging.DEBUG, disable_logger_names: Optional[Lis
 def load_dotenv_vars():
     from dotenv import load_dotenv
     load_dotenv()
-    sys.path.insert(0, os.getenv("PYTHONPATH", './src'))
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    sys.path.extend([
+        os.path.join(root_dir, os.getenv("CONFIG_PATH", 'config.yaml')),
+        os.path.join(root_dir, os.getenv("PYTHONPATH", 'src'))
+    ])

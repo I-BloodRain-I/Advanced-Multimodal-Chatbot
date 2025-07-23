@@ -2,6 +2,7 @@ import asyncio
 from typing import AsyncGenerator, List, Optional
 import logging
 
+import torch
 from transformers import (
     AutoTokenizer, 
     AutoModelForCausalLM, 
@@ -27,7 +28,7 @@ class StopOnTokens(StoppingCriteria):
         super().__init__()
         self.stop_token_ids = stop_token_ids
 
-    def __call__(self, input_ids, scores, **kwargs):
+    def __call__(self, input_ids: torch.Tensor, scores, **kwargs):
         """Return True if the last token matches a stop token ID."""
         # Check if the last generated token is in our stop tokens
         return input_ids[0][-1].item() in self.stop_token_ids
@@ -185,7 +186,6 @@ class TextStreamer:
 
         if not messages:
             logger.warning("Empty messages provided")
-            return iter([])
         
         try:
             return self._create_stream_generator(messages)

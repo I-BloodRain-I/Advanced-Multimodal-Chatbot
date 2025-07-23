@@ -49,9 +49,12 @@ class Router:
         else:
             return task_types, None
         
-    def _normalize_embeddings(self, embeddings: EmbeddingArray):
+    def _normalize_embeddings(self, embeddings: EmbeddingArray) -> torch.Tensor:
         """Converts input embeddings to a PyTorch tensor if needed."""
+        if isinstance(embeddings, torch.Tensor):
+            return embeddings.type(torch.float)
         if isinstance(embeddings, ndarray):
-            return torch.from_numpy(embeddings)
+            return torch.from_numpy(embeddings).type(torch.float)
         elif not isinstance(embeddings, torch.Tensor):
-            return torch.tensor(embeddings)
+            return torch.tensor(embeddings, dtype=torch.float)
+        

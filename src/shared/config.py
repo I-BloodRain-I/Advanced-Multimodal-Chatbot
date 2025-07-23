@@ -133,9 +133,7 @@ class Config:
             }
         }
 
-        with open(cls._path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(cls._config_data, f)
-        logger.info("Created new config.yaml.")
+        cls.save()
 
     @classmethod
     def _validate_config(cls):

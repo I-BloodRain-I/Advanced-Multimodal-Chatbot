@@ -76,7 +76,7 @@ class Pipeline:
         img_use_refiner: bool = False,
         img_refiner_name: str = 'stabilityai/stable-diffusion-xl-refiner-1.0'
     ):
-        if hasattr(self, '_initialized') and self._initialized:
+        if self._initialized:
             return  # Avoid reinitialization
         
         # Instantiate core components

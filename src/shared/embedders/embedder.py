@@ -34,7 +34,7 @@ class Embedder:
                  model_name: str = 'all-mpnet-base-v2',
                  device_name: str = 'cuda'):
         # Prevent reinitialization on repeated instantiations
-        if hasattr(self, '_initialized') and self._initialized:
+        if self._initialized:
             return
         
         self.device = get_torch_device(device_name)

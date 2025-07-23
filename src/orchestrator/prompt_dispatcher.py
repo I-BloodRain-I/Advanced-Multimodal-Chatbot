@@ -108,9 +108,11 @@ class PromptDispatcher:
             return None
 
         conv_ids, histories = [], []
-
         for conv_info in batch_data:
             try:
+                if 'conv_id' not in conv_info or 'history' not in conv_info:
+                    raise KeyError()
+
                 conv_ids.append(conv_info['conv_id'])
                 histories.append([Message(role=msg['role'], content=msg['content']) for msg in conv_info['history']])
             except KeyError as e:

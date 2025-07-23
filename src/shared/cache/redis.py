@@ -27,7 +27,7 @@ class Redis:
                  port: int = 6379,
                  decode_responses: bool = True):
         # Prevent reinitialization
-        if hasattr(self, '_initialized') and self._initialized:
+        if self._initialized:
             return
 
         self.host = host

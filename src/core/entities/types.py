@@ -71,7 +71,7 @@ class DocumentChunk(BaseModel):
     """
     document_id: str
     content: str
-    embeddings: Union[Tensor, NDArray]
+    embeddings: Optional[Union[Tensor, NDArray]]
 
     # Allow non-standard types like Tensor and NDArray
     model_config = ConfigDict(arbitrary_types_allowed=True)

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 import json
 
 from fastapi import FastAPI
+import uvicorn
 
 from api.manager import ConnectionManager
 from api.stream_subscriber import StreamSubscriber
@@ -53,7 +54,6 @@ def start_server(app: FastAPI, host: str, port: int, **kwargs):
         port (int): Port number to listen on.
         **kwargs: Optional additional arguments to pass to uvicorn.run.
     """
-    import uvicorn
     uvicorn.run(app, host=host, port=port, **kwargs)
 
 

@@ -15,7 +15,7 @@ class AsyncRedis(Redis):
                  host: str = 'localhost',
                  port: int = 6379,
                  decode_responses: bool = True):       
-        if hasattr(self, '_initialized') and self._initialized:
+        if self._initialized:
             return  # avoid reinitialization
 
         self.host = host

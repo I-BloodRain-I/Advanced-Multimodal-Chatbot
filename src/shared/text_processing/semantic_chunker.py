@@ -112,23 +112,27 @@ class SemanticChunker:
         """Merge chunks that are shorter than `min_chunk_tokens`."""
         if not chunks:
             return chunks
-
+        
         merged = [chunks[0]]
-        for i, chunk in enumerate(chunks[1:]):
+        
+        for i, chunk in enumerate(chunks[1:], 1):
             chunk_tokens = self._count_tokens(chunk)
-
-            if chunk_tokens >= self.min_tokens:
-                merged.append(chunk)
-                continue
-
-            prev = merged.pop()
+            prev = merged[-1]
             prev_tokens = self._count_tokens(prev)
-            if prev_tokens + chunk_tokens <= self.chunk_limit:
-                logger.debug(f"Merging small chunk {i} with previous: {chunk_tokens} tokens.")
-                merged.append(f"{prev} {chunk}")
+            
+            # Try to merge if at least one of the chunks is smaller than the minimum
+            # and the total size does not exceed the limit
+            if (prev_tokens < self.min_tokens or chunk_tokens < self.min_tokens) and \
+            (prev_tokens + chunk_tokens <= self.chunk_limit):
+                
+                merged.pop()
+                merged_chunk = f"{prev} {chunk}"
+                merged.append(merged_chunk)
+                logger.debug(f"Merging chunk {i} ({chunk_tokens} tokens) with previous ({prev_tokens} tokens)")
             else:
-                logger.debug(f"Chunk {i} too long to merge; preserving both.")
-                merged.extend([prev, chunk])
+                merged.append(chunk)
+                logger.debug(f"Keeping chunk {i} separate ({chunk_tokens} tokens)")
+        
         return merged
 
     def _split_sentences(self, text: str) -> List[str]:
