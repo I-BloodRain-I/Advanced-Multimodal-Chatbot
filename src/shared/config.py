@@ -44,7 +44,6 @@ class Config:
     @classmethod
     def _initialize_default_config(cls):
         cls._config_data = {
-            "data_dir":    "data",
             "logging_dir": "logs",
             "models_dir":  "models",
             "embedder": {
@@ -112,12 +111,6 @@ class Config:
                     }
                 }
             },
-            "cache": {
-                "redis": {
-                    "host": "redis",
-                    "port": 6379
-                }
-            },
             "dispatcher": {
                 "sleep_seconds": 1.0
             },
@@ -127,10 +120,6 @@ class Config:
                 "model_path": "task_classifier.pth",
                 "n_classes": 3
             },
-            "server": {
-                "host": "0.0.0.0",
-                "port": 8000
-            }
         }
 
         cls.save()
@@ -138,9 +127,9 @@ class Config:
     @classmethod
     def _validate_config(cls):
         required_keys = [
-            "data_dir", "logging_dir", "models_dir", "image_generator",
-            "embedder", "llm", "semantic_chunker", "rag", "cache", 
-            "dispatcher", "task_classifier", "server"
+            "logging_dir", "models_dir", "image_generator",
+            "embedder", "llm", "semantic_chunker", "rag",
+            "dispatcher", "task_classifier"
         ]
         for key in required_keys:
             if key not in cls._config_data:

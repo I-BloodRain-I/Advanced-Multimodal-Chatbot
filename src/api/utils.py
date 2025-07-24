@@ -8,6 +8,7 @@ import uvicorn
 
 from api.manager import ConnectionManager
 from api.stream_subscriber import StreamSubscriber
+from common.utils import require_env_var
 from shared.cache import AsyncRedis
 from shared.config import Config
 
@@ -24,11 +25,11 @@ def create_app() -> FastAPI:
     Returns:
         FastAPI: A configured FastAPI application instance.
     """
-    cfg = Config().get('cache.redis')
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        redis = AsyncRedis(host=cfg.get('host'), port=cfg.get('port'), decode_responses=False)
+        redis = AsyncRedis(host=require_env_var('REDIS_HOST'), 
+                           port=int(require_env_var('REDIS_PORT')), 
+                           decode_responses=False)
         await redis.connect()
         logger.info("Redis connection established.")
 
@@ -68,8 +69,9 @@ def load_listener(manager: Optional[ConnectionManager] = None) -> StreamSubscrib
     Returns:
         StreamSubscriber: An instance set up to listen to Redis pub/sub streams.
     """
-    cfg = Config().get('cache.redis')
-    return StreamSubscriber(manager=manager, host=cfg.get('host'), port=cfg.get('port'))
+    return StreamSubscriber(manager=manager, 
+                            host=require_env_var('REDIS_HOST'), 
+                            port=int(require_env_var('REDIS_PORT')))
 
 
 async def store_prompt(redis: AsyncRedis, conv_id: str, prompt_data: Dict[str, List[Dict[str, str]]]):

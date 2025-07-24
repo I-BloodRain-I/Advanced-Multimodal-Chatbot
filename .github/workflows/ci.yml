@@ -35,6 +35,10 @@ jobs:
         run: |
           echo "CONFIG_PATH=config.yaml" >> .env
           echo "PYTHONPATH=src" >> .env
+          echo "SERVER_HOST=0.0.0.0" >> .env
+          echo "SERVER_PORT=8000" >> .env
+          echo "REDIS_HOST=redis" >> .env
+          echo "REDIS_PORT=6379" >> .env
           echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
           echo "PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}" >> .env
 

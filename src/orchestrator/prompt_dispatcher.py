@@ -5,10 +5,10 @@ import time
 import json
 from typing import AsyncGenerator, Optional, List, Dict
 
+from common.utils import require_env_var
 from core.entities.types import ConversationBatch, Message, AgentResponse
 from orchestrator.pipeline import Pipeline
 from shared.cache.redis import Redis
-from shared.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,7 @@ class PromptDispatcher:
         Initializes the Redis client and clears any stale message batches from the queue to ensure
         clean startup without processing outdated requests.
         """
-        cfg = Config.get('cache.redis')
-        self._redis = Redis(host=cfg.get('host'), port=cfg.get('port'))
+        self._redis = Redis(host=require_env_var('REDIS_HOST'), port=int(require_env_var('REDIS_PORT')))
         self._redis.delete("process:messages_batch")    # Clear any unprocessed batches
 
     def _batch_processing_loop(self):

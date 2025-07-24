@@ -13,7 +13,7 @@ def test_default_config_creation(isolated_config):
     Config._instance = None
     config = Config()
     assert os.path.exists(isolated_config), "config.yaml should be created"
-    assert config.get("data_dir") == "data"
+    assert config.get("models_dir") == "models"
 
 def test_config_get_set_update(isolated_config):
     config = Config()

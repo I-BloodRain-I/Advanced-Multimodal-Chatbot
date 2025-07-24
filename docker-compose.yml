@@ -40,10 +40,9 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: [gpus]
-    runtime: nvidia
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     profiles:
       - gpu
 

@@ -6,7 +6,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from common.utils import setup_logging
 setup_logging()
 
-from shared.config import Config
+from common.utils import require_env_var
 from .manager import ConnectionManager
 from .utils import create_app, start_server, store_prompt, load_listener
 
@@ -61,5 +61,4 @@ async def websocket_endpoint(websocket: WebSocket, conv_id: str):
         listener.unsubscribe(conv_id)
 
 if __name__ == "__main__":
-    server_cfg = Config().get('server')
-    start_server(app, server_cfg.get('host'), server_cfg.get('port'))
+    start_server(app, require_env_var('SERVER_HOST'), int(require_env_var('SERVER_PORT')))

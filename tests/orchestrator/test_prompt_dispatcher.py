@@ -34,14 +34,14 @@ def mock_config():
 def dispatcher(mock_redis, mock_pipeline, mock_config):
     with patch('orchestrator.prompt_dispatcher.Redis', return_value=mock_redis), \
          patch('orchestrator.prompt_dispatcher.Pipeline.build', return_value=mock_pipeline), \
-         patch('orchestrator.prompt_dispatcher.Config.get', return_value=mock_config):
+         patch('shared.config.Config.get', return_value=mock_config):
         return PromptDispatcher(sleep_seconds=0.1)
 
 
 def test_init_clears_redis_queue(mock_redis, mock_pipeline, mock_config):
     with patch('orchestrator.prompt_dispatcher.Redis', return_value=mock_redis), \
          patch('orchestrator.prompt_dispatcher.Pipeline.build', return_value=mock_pipeline), \
-         patch('orchestrator.prompt_dispatcher.Config.get', return_value=mock_config):
+         patch('shared.config.Config.get', return_value=mock_config):
         PromptDispatcher()
         mock_redis.delete.assert_called_once_with("process:messages_batch")
 
