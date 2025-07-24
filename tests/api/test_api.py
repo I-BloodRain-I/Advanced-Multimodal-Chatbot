@@ -7,6 +7,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from api.manager import ConnectionManager
 from api.stream_subscriber import StreamSubscriber
 from api.utils import create_app, start_server, store_prompt, load_listener
+from shared.cache.async_redis import AsyncRedis
 
 
 @pytest.fixture(autouse=True)
@@ -136,25 +137,15 @@ def test_stream_subscriber_init_default_manager():
 
 
 @pytest.mark.asyncio
+@patch('api.stream_subscriber.AsyncRedis', new_callable=Mock)
 async def test_stream_subscriber_subscribe_new(mock_redis):
-    async def async_gen():
-        if False:
-            yield
-
     manager = Mock()
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
-    subscriber.redis = mock_redis
-    
-    mock_pubsub = AsyncMock()
-    mock_pubsub.subscribe = AsyncMock()
-    mock_pubsub.listen = Mock(return_value=async_gen())
-    # mock_pubsub.listen.return_value = []
-    mock_redis.pubsub.return_value = mock_pubsub
-    
+
     conv_id = "test_conv_123"
     await subscriber.subscribe(conv_id)
     
-    mock_pubsub.subscribe.assert_called_once_with(conv_id)
+    subscriber.pubsub.subscribe.assert_called_once_with(conv_id)
     assert conv_id in subscriber.tasks
 
 
@@ -172,37 +163,38 @@ async def test_stream_subscriber_subscribe_already_exists():
     assert subscriber.tasks[conv_id] is mock_task
 
 
-def test_stream_subscriber_unsubscribe():
+@pytest.mark.asyncio
+@patch('api.stream_subscriber.AsyncRedis')
+async def test_stream_subscriber_unsubscribe(mock_redis):
     manager = Mock()
+
+    mock_pubsub = Mock()
+    mock_pubsub.unsubscribe = AsyncMock()
+
+    mock_redis.return_value.pubsub.return_value = mock_pubsub
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
-    
+
     conv_id = "test_conv_123"
     mock_task = Mock()
     subscriber.tasks[conv_id] = mock_task
     
-    subscriber.unsubscribe(conv_id)
+    await subscriber.unsubscribe(conv_id)
     
     mock_task.cancel.assert_called_once()
     assert conv_id not in subscriber.tasks
 
-
-def test_stream_subscriber_unsubscribe_nonexistent():
+@pytest.mark.asyncio
+async def test_stream_subscriber_unsubscribe_nonexistent():
     manager = Mock()
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
     
     conv_id = "nonexistent_conv"
-    subscriber.unsubscribe(conv_id)
+    await subscriber.unsubscribe(conv_id)
     
     assert conv_id not in subscriber.tasks
 
 
-@patch('api.utils.Config')
-def test_create_app(mock_config):
-    mock_config.return_value.get.return_value.get.side_effect = lambda key: {
-        'host': 'localhost',
-        'port': 6379
-    }[key]
-    
+def test_create_app():
     app = create_app()
     
     assert app is not None
@@ -333,7 +325,7 @@ async def test_websocket_endpoint_websocket_disconnect(mock_listener, mock_manag
     mock_manager.connect = AsyncMock()
     mock_manager.disconnect = Mock()  
     mock_listener.subscribe = AsyncMock()
-    mock_listener.unsubscribe = Mock()
+    mock_listener.unsubscribe = AsyncMock()
 
     mock_websocket = AsyncMock()
     mock_websocket.receive_text.side_effect = WebSocketDisconnect()
@@ -357,7 +349,7 @@ async def test_websocket_endpoint_unexpected_exception(mock_listener, mock_manag
     mock_manager.connect = AsyncMock()
     mock_manager.disconnect = Mock()  
     mock_listener.subscribe = AsyncMock()
-    mock_listener.unsubscribe = Mock()
+    mock_listener.unsubscribe = AsyncMock()
 
     mock_websocket = AsyncMock()
     mock_websocket.receive_text.side_effect = WebSocketDisconnect()
@@ -376,10 +368,10 @@ async def test_websocket_endpoint_unexpected_exception(mock_listener, mock_manag
 
 
 @pytest.mark.asyncio
+@patch('api.stream_subscriber.AsyncRedis')
 async def test_stream_subscriber_forward_message(mock_redis):
     manager = AsyncMock()
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
-    subscriber.redis = mock_redis
     
     mock_pubsub = AsyncMock()
     mock_message = {
@@ -391,11 +383,9 @@ async def test_stream_subscriber_forward_message(mock_redis):
         yield mock_message
 
     mock_pubsub.listen = lambda: async_gen()
-    mock_pubsub.subscribe = AsyncMock()
-    mock_pubsub.unsubscribe = AsyncMock()
-    mock_pubsub.close = AsyncMock()
+    mock_pubsub.subscribe = Mock()
     
-    mock_redis.pubsub.return_value = mock_pubsub
+    subscriber.pubsub = mock_pubsub
     
     conv_id = "test_conv_123"
     await subscriber.subscribe(conv_id)

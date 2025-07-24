@@ -1,4 +1,5 @@
-from typing import Optional, Any
+import asyncio
+from typing import List, Optional, Any, Tuple, Union
 import logging
 
 import redis.asyncio as redis
@@ -14,33 +15,23 @@ class AsyncRedis(Redis):
     def __init__(self, 
                  host: str = 'localhost',
                  port: int = 6379,
+                 db: int = 0,
                  decode_responses: bool = True):       
         if self._initialized:
             return  # avoid reinitialization
 
         self.host = host
         self.port = port
+        self.db = db
         self.decode_responses = decode_responses
-        self._redis: Optional[redis.Redis] = None
-        self._initialized = True
-
-    async def connect(self):
-        """
-        Establish an asynchronous Redis connection if not already connected.
-
-        Raises:
-            Exception: If connection fails.
-        """
-        if self._redis is not None:
-            return  # Already connected
-
         try:
-            self._redis = redis.Redis(host=self.host, port=self.port, decode_responses=self.decode_responses)
-            await self._redis.ping()     # Test connectivity
+            self._redis = redis.Redis(host=self.host, port=self.port, db=db, decode_responses=decode_responses)
+            # asyncio.run(self._redis.ping())  # Test the connection
             logger.info(f"Connected to Redis at {self.host}:{self.port}")
         except Exception as e:
             logger.error(f"Redis connection error: host={self.host}, port={self.port}: {e}", exc_info=True)
             raise
+        self._initialized = True
 
     async def set(self, key: str, value: Any, expire_in_sec: Optional[int] = None) -> bool:
         try:
@@ -65,6 +56,24 @@ class AsyncRedis(Redis):
         except redis.RedisError as e:
             logger.error(f"Failed to rpush key '{key}' in Redis: {e}", exc_info=True)
             return False
+
+    async def blpop(self, keys: Union[str, List[str]], timeout: int = 0) -> Optional[Tuple[str, Any]]:
+        try:
+            result = await self._redis.blpop(keys=keys, timeout=timeout)
+            if result:
+                return result
+        except redis.RedisError as e:
+            logger.error(f"Failed to blpop keys '{keys}' in Redis: {e}", exc_info=True)
+            return None
+
+    async def lrange(self, key: str, start: int = 0, end: int = -1) -> Optional[List[Any]]:
+        try:
+            value = await self._redis.lrange(name=key, start=start, end=end)
+            if value:
+                return value
+        except redis.RedisError as e:
+            logger.error(f"Failed to lrange key '{key}' in Redis: {e}", exc_info=True)
+            return None
 
     async def append(self, key: str, value: str) -> bool:
         try:

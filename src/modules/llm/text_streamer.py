@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncGenerator, List, Optional
+import threading
+from typing import AsyncGenerator, List, Optional, Tuple
 import logging
 
 import torch
@@ -20,16 +21,22 @@ logger = logging.getLogger(__name__)
 class StopOnTokens(StoppingCriteria):
     """Custom stopping criteria to stop generation when specific tokens are encountered"""
 
-    def __init__(self, stop_token_ids: List[int]):
+    def __init__(self, stop_token_ids: List[int], stop_event: threading.Event):
         """
         Args:
             stop_token_ids (List[int]): List of token IDs that trigger stopping.
+            stop_event (threading.Event): Threading event to signal when generation should stop.
         """
         super().__init__()
         self.stop_token_ids = stop_token_ids
+        self.stop_event = stop_event
 
     def __call__(self, input_ids: torch.Tensor, scores, **kwargs):
-        """Return True if the last token matches a stop token ID."""
+        """Return True if the last token matches a stop token ID or stop event is set."""
+        # Check stop event first (for manual cancellation)
+        if self.stop_event and self.stop_event.is_set():
+            return True
+    
         # Check if the last generated token is in our stop tokens
         return input_ids[0][-1].item() in self.stop_token_ids
 
@@ -57,18 +64,21 @@ class TextStreamer:
         logger.debug(f"TextStreamer initialized with max_new_tokens={self.max_new_tokens}, "
                      f"temperature={self.temperature}, device={self.device}")
 
-    def _create_stopping_criteria(self) -> Optional[StoppingCriteriaList]:
+    def _create_stopping_criteria(self) -> Tuple[Optional[StoppingCriteriaList], threading.Event]:
         """
         Creats a stopping criteria list based on predefined stop sequences.
 
         Returns:
-            Optional[StoppingCriteriaList]: A list of stopping criteria or None if no valid sequences are found.
+            Tuple[Optional[StoppingCriteriaList], threading.Event]: 
+                A list of stopping criteria or None if no valid sequences are found. 
+                And threading event to signal when generation should stop.
         """
         logger.debug("Creating stopping criteria")
 
         stop_sequences = ["<|im_end|>", "<|endoftext|>", "<|end|>"]
         stop_token_ids = []
 
+        stop_event = threading.Event()
         if hasattr(self.tokenizer, 'chat_template') and self.tokenizer.chat_template:    
             for seq in stop_sequences:
                 try:
@@ -85,15 +95,15 @@ class TextStreamer:
             if stop_token_ids:
                 # Remove duplicates while preserving order
                 stop_token_ids = list(dict.fromkeys(stop_token_ids))
-                stopping_criteria = StoppingCriteriaList([StopOnTokens(stop_token_ids)])
+                stopping_criteria = StoppingCriteriaList([StopOnTokens(stop_token_ids, stop_event)])
                 logger.debug(f"Created stopping criteria with {len(stop_token_ids)} stop tokens: {stop_token_ids}")
-                return stopping_criteria
+                return stopping_criteria, stop_event
             else:
                 logger.debug("No valid stop tokens found, no stopping criteria created")
         else:
             logger.debug("No chat template found, no stopping criteria created")
         
-        return None
+        return None, stop_event
 
     async def _create_stream_generator(self, messages: MessageHistory) -> AsyncGenerator[str, None]:
         """
@@ -140,7 +150,7 @@ class TextStreamer:
             "streamer": streamer,
         }
         
-        stopping_criteria = self._create_stopping_criteria()
+        stopping_criteria, stop_event = self._create_stopping_criteria()
         if stopping_criteria:
             generation_kwargs["stopping_criteria"] = stopping_criteria
         
@@ -158,6 +168,8 @@ class TextStreamer:
         try:
             async for token in streamer:
                 if token:
+                    if token_count == self.max_new_tokens:
+                        break
                     token_count += 1
                     yield token
             
@@ -168,7 +180,12 @@ class TextStreamer:
             logger.error(f"Error during token streaming: {e}", exc_info=True)
             generation_task.cancel()
             raise
+
         finally:
+            stop_event.set()
+            streamer.end()
+            if not generation_task.done():
+                generation_task.cancel()
             logger.debug(f"Generation completed. Total tokens generated: {token_count}")
 
 

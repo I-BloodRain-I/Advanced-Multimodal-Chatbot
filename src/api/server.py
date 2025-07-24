@@ -1,11 +1,14 @@
 import logging
 import json
+import os
 
+from fastapi.responses import FileResponse
 from fastapi import WebSocket, WebSocketDisconnect
 
 from common.utils import setup_logging
 setup_logging()
 
+from shared.config import Config
 from common.utils import require_env_var
 from .manager import ConnectionManager
 from .utils import create_app, start_server, store_prompt, load_listener
@@ -21,6 +24,10 @@ listener = load_listener(manager)
 # Create the FastAPI app with Redis integration on startup
 app = create_app()
 
+# Serve index.html when the root path '/' is requested
+@app.get("/")
+async def serve_index():
+    return FileResponse(os.path.join(Config().get('webapp_dir'), "index.html"))
 
 @app.websocket("/ws/{conv_id}")
 async def websocket_endpoint(websocket: WebSocket, conv_id: str):
@@ -53,7 +60,7 @@ async def websocket_endpoint(websocket: WebSocket, conv_id: str):
 
     except WebSocketDisconnect:
         manager.disconnect(conv_id)
-        listener.unsubscribe(conv_id)
+        await listener.unsubscribe(conv_id)
 
     except Exception:
         logger.error(f"Unexpected error in WebSocket handler for {conv_id}", exc_info=True)

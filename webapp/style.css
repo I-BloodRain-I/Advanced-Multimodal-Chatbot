@@ -34,15 +34,6 @@
     background: linear-gradient(135deg, rgba(30,27,75,0.8) 0%, rgba(15,23,42,1) 100%);
 }
 
-.code-block {
-    font-family: 'Courier New', monospace;
-    background-color: rgba(255,255,255,0.1);
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    color: white;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
@@ -89,18 +80,133 @@
     margin-bottom: 0.5rem;
 }
 
-.parsed-markdown pre {
-    background-color: #1f2937;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
+pre {
+  background-color: #161d28;       
+  color: #d6deeb;                   
+  padding: 16px 20px;
+  margin: 20px 0 20px 0 !important;
+  border-radius: 12px;             
+  font-family: 'Fira Code', monospace, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;            
+  word-break: break-word;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); 
 }
 
-.parsed-markdown code {
-    background-color: #374151;
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.25rem;
-    font-family: monospace;
+pre code.hljs {
+  background: none; 
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+pre code.hljs .hljs-ln-numbers {
+  user-select: none;
+  opacity: 0.5;
+  padding-right: 10px;
+}
+
+code {
+    background-color: #2d3748;
+    color: #f8f8f2;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 90%;
+    font-family: 'Fira Code', monospace, monospace;
+}
+
+.hljs-built_in {
+    color: #e9950c;
+}
+
+.hljs-title {
+    color: #f22c3d;
+    font-weight: 700;
+}
+
+.hljs-keyword {
+    font-weight: 700;
+    color: #2e95d3;
+}
+
+.hljs-string {
+    color: #00a67d;
+}
+
+.hljs-number {
+    color: #df3079;
+}
+
+/* Code buttons styling */
+.code-buttons {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 10;
+}
+
+.code-container:hover .code-buttons {
+    opacity: 1;
+}
+
+.code-copy-button,
+.code-edit-button {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    border: none;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.code-copy-button:active,
+.code-edit-button:active {
+    transform: translateY(1px);
+}
+
+
+.dark .code-copy-button,
+.dark .code-edit-button {
+    background: #374151;
+    color: #f9fafb;
+}
+
+.dark .code-copy-button:hover,
+.dark .code-edit-button:hover {
+    background: #4b5563;
+}
+
+/* Language label (optional) */
+.code-container::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 0.5rem;
+    left: 1rem;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .code-buttons {
+        opacity: 1; /* Always show on mobile */
+        position: static;
+        background: rgba(31, 41, 55, 0.9);
+        padding: 0.5rem;
+        justify-content: flex-end;
+        border-top: 1px solid #374151;
+    }
+    
+    .code-container pre {
+        padding-bottom: 0;
+    }
 }
 
 .attachment-preview {
@@ -169,4 +275,9 @@
 
 @keyframes spin {
     100% { transform: rotate(360deg); }
+}
+
+.parsed-markdown p > strong:first-child {
+    display: block;
+    margin-top: 1.5rem;
 }

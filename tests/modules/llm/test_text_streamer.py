@@ -1,3 +1,4 @@
+import threading
 import pytest
 import torch
 from unittest.mock import AsyncMock, Mock, patch
@@ -51,7 +52,7 @@ def mock_messages_batch():
 
 def test_stop_on_tokens_stops_on_matching_token():
     stop_token_ids = [42]
-    criteria = StopOnTokens(stop_token_ids)
+    criteria = StopOnTokens(stop_token_ids, None)
 
     input_ids = torch.tensor([[1, 2, 42]])
     result = criteria(input_ids=input_ids, scores=None)
@@ -60,7 +61,7 @@ def test_stop_on_tokens_stops_on_matching_token():
 
 def test_stop_on_tokens_does_not_stop_on_non_matching_token():
     stop_token_ids = [99]
-    criteria = StopOnTokens(stop_token_ids)
+    criteria = StopOnTokens(stop_token_ids, None)
 
     input_ids = torch.tensor([[1, 2, 42]])
     result = criteria(input_ids=input_ids, scores=None)
@@ -79,9 +80,10 @@ def test_create_stopping_criteria_returns_criteria(mock_llm_components):
         temperature=TEST_TEMPERATURE
     )
 
-    criteria = streamer._create_stopping_criteria()
+    criteria, stop_event = streamer._create_stopping_criteria()
     assert isinstance(criteria, StoppingCriteriaList)
     assert isinstance(criteria[0], StopOnTokens)
+    assert isinstance(stop_event, threading.Event)
 
 
 def test_create_stopping_criteria_returns_none_without_chat_template(mock_llm_components):
@@ -95,7 +97,7 @@ def test_create_stopping_criteria_returns_none_without_chat_template(mock_llm_co
         temperature=TEST_TEMPERATURE
     )
 
-    assert streamer._create_stopping_criteria() is None
+    assert streamer._create_stopping_criteria()[0] is None
 
 
 @pytest.mark.asyncio

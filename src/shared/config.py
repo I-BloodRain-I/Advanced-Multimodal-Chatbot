@@ -45,6 +45,7 @@ class Config:
     def _initialize_default_config(cls):
         cls._config_data = {
             "logging_dir": "logs",
+            "webapp_dir": "webapp",
             "models_dir":  "models",
             "embedder": {
                 "model_name": "all-mpnet-base-v2",
@@ -111,9 +112,6 @@ class Config:
                     }
                 }
             },
-            "dispatcher": {
-                "sleep_seconds": 1.0
-            },
             "task_classifier": {
                 "device_name": "cuda",
                 "embed_dim": 768,
@@ -127,9 +125,8 @@ class Config:
     @classmethod
     def _validate_config(cls):
         required_keys = [
-            "logging_dir", "models_dir", "image_generator",
-            "embedder", "llm", "semantic_chunker", "rag",
-            "dispatcher", "task_classifier"
+            "webapp_dir", "logging_dir", "models_dir", "image_generator",
+            "embedder", "llm", "semantic_chunker", "rag", "task_classifier"
         ]
         for key in required_keys:
             if key not in cls._config_data:

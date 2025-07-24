@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 import json
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from api.manager import ConnectionManager
@@ -15,7 +16,7 @@ from shared.config import Config
 logger = logging.getLogger(__name__)
 
 
-def create_app() -> FastAPI:
+def create_app(mount_path: str = '/static') -> FastAPI:
     """
     Create and configure a FastAPI application with Redis lifecycle hooks.
 
@@ -30,18 +31,19 @@ def create_app() -> FastAPI:
         redis = AsyncRedis(host=require_env_var('REDIS_HOST'), 
                            port=int(require_env_var('REDIS_PORT')), 
                            decode_responses=False)
-        await redis.connect()
         logger.info("Redis connection established.")
 
         # Make Redis available via app.state
         app.state.redis = redis
         yield  # Application runs here
         
-         # Disconnect Redis cleanly on shutdown
+        # Disconnect Redis cleanly on shutdown
         await redis.close()
         logger.info("Redis client closed.")
 
     app = FastAPI(lifespan=lifespan)
+    app.mount(mount_path, StaticFiles(directory=Config().get('webapp_dir')), name=mount_path)
+
     return app
 
 

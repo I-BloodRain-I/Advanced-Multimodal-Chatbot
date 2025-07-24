@@ -18,56 +18,69 @@ class StreamSubscriber:
     def __init__(self, 
                  manager: Optional[ConnectionManager] = None, 
                  host: str = 'localhost', 
-                 port: int = 6379):
+                 port: int = 6379,
+                 db: int = 0):
         self.manager = manager or ConnectionManager()
-        self.redis = AsyncRedis(host=host, port=port, decode_responses=False)
+        self.redis = AsyncRedis(host=host, port=port, db=db, decode_responses=False)
+        self.pubsub = self.redis.pubsub()
         self.tasks: Dict[str, asyncio.Task] = {}
+        self.listener_task = None
+
+    async def _start_listener(self):
+        """Starts the unified message listener if not already running."""
+        if self.listener_task is None:
+            self.listener_task = asyncio.create_task(self._listen())
+
+    async def _listen(self):
+        """Listens for all messages and forwards them to appropriate channels."""
+        try:
+            async for msg in self.pubsub.listen():
+                if msg['type'] == 'message':
+                    conv_id = msg['channel'].decode() if isinstance(msg['channel'], bytes) else msg['channel']
+                    await self.manager.send_message(msg['data'], conv_id)
+        except Exception as e:
+            logger.error(f"Pubsub listener error: {e}", exc_info=True)
 
     async def subscribe(self, conv_id: str):
         """
-        Start listening to a Redis pub/sub channel for a given conversation ID.
-
-        If already subscribed, this is a no-op. Messages are streamed to the
-        corresponding WebSocket client managed by `ConnectionManager`.
-
+        Subscribe to a Redis channel for a given conversation ID.
+        
         Args:
             conv_id (str): The conversation identifier used as the Redis channel.
         """
         if conv_id in self.tasks:
-            logger.info(f"Already subscribed to channel: {conv_id}")
             return
 
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(conv_id)
-        logger.info(f"Subscribed to Redis channel: {conv_id}")
+        self.pubsub.subscribe(conv_id)
+        await self._start_listener()
+        
+        # Create empty task for tracking
+        self.tasks[conv_id] = asyncio.create_task(asyncio.sleep(0))
+        logger.info(f"Subscribed to: {conv_id}")
 
-        async def forward(manager: ConnectionManager):
-            try:
-                async for msg in pubsub.listen():
-                    if msg['type'] == 'message':
-                        # Forward content to WebSocket client
-                        await manager.send_message(msg['data'], conv_id)
-            except Exception as e:
-                logger.error(f"Error forwarding messages for conv_id: {conv_id}: {e}", exc_info=True)
-                try:
-                    await pubsub.unsubscribe(conv_id)
-                    await pubsub.close()
-                    logger.info(f"Unsubscribed and closed Redis pubsub for conv_id: {conv_id}")
-                except Exception as e:
-                    logger.error(f"Failed to clean up pubsub for conv_id: {conv_id}: {e}", exc_info=True)
-
-        # Start background task to forward messages
-        task = asyncio.create_task(forward(self.manager))
-        self.tasks[conv_id] = task
-
-    def unsubscribe(self, conv_id: str):
+    async def unsubscribe(self, conv_id: str):
         """
-        Stop listening to the Redis channel for a specific conversation.
-
+        Unsubscribe from a Redis channel for a specific conversation.
+        
         Args:
             conv_id (str): The conversation identifier to unsubscribe from.
         """
-        task = self.tasks.get(conv_id)
-        if task:
-            task.cancel()
-            del self.tasks[conv_id]
+        if conv_id not in self.tasks:
+            return
+
+        await self.pubsub.unsubscribe(conv_id)
+        self.tasks[conv_id].cancel()
+        del self.tasks[conv_id]
+        logger.info(f"Unsubscribed from: {conv_id}")
+
+        # Stop listener if no active subscriptions
+        if not self.tasks and self.listener_task:
+            self.listener_task.cancel()
+            self.listener_task = None
+
+    async def close(self):
+        """Close all subscriptions and cleanup resources."""
+        if self.listener_task:
+            self.listener_task.cancel()
+        await self.pubsub.close()
+        self.tasks.clear()

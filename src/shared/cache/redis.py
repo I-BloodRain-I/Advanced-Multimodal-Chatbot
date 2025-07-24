@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import List, Optional, Any, Tuple, Union
 import logging
 
 import redis
@@ -25,6 +25,7 @@ class Redis:
     def __init__(self, 
                  host: str = 'localhost',
                  port: int = 6379,
+                 db: int = 0,
                  decode_responses: bool = True):
         # Prevent reinitialization
         if self._initialized:
@@ -32,9 +33,11 @@ class Redis:
 
         self.host = host
         self.port = port
+        self.db = db
         try:
-            self._redis = redis.Redis(host=self.host, port=self.port, decode_responses=decode_responses)
+            self._redis = redis.Redis(host=self.host, port=self.port, db=db, decode_responses=decode_responses)
             self._redis.ping()  # Test the connection
+            logger.info(f"Connected to Redis at {self.host}:{self.port}")
         except Exception as e:
             logger.error(f"Redis connection error: host={self.host}, port={self.port}: {e}", exc_info=True)
             raise
@@ -93,6 +96,45 @@ class Redis:
         except redis.RedisError as e:
             logger.error(f"Failed to rpush key '{key}' in Redis: {e}", exc_info=True)
             return False
+        
+    def blpop(self, keys: Union[str, List[str]], timeout: int = 0) -> Optional[Tuple[str, Any]]:
+        """
+        Block until an element is available to pop from the left of one or more Redis lists.
+
+        Args:
+            keys (Union[str, List[str]]): The Redis list key(s) to monitor.
+            timeout (int): Maximum time to block in seconds (0 = block indefinitely).
+
+        Returns:
+            Optional[Tuple[str, Any]]: Tuple of (key, value) for the popped element, or None on failure/timeout.
+        """
+        try:
+            result = self._redis.blpop(keys=keys, timeout=timeout)
+            if result:
+                return result
+        except redis.RedisError as e:
+            logger.error(f"Failed to blpop keys '{keys}' in Redis: {e}", exc_info=True)
+            return None
+
+    def lrange(self, key: str, start: int = 0, end: int = -1) -> Optional[List[Any]]:
+        """
+        Get a range of elements from a Redis list.
+
+        Args:
+            key (str): The Redis list key.
+            start (int): Starting index (0-based, inclusive).
+            end (int): Ending index (0-based, inclusive, -1 for last element).
+
+        Returns:
+            Optional[List[Any]]: List of elements in the specified range, or None on failure.
+        """
+        try:
+            value = self._redis.lrange(name=key, start=start, end=end)
+            if value is not None:
+                return value
+        except redis.RedisError as e:
+            logger.error(f"Failed to lrange key '{key}' in Redis: {e}", exc_info=True)
+            return None
 
     def append(self, key: str, value: str) -> bool:
         """

@@ -35,7 +35,7 @@ def dispatcher(mock_redis, mock_pipeline, mock_config):
     with patch('orchestrator.prompt_dispatcher.Redis', return_value=mock_redis), \
          patch('orchestrator.prompt_dispatcher.Pipeline.build', return_value=mock_pipeline), \
          patch('shared.config.Config.get', return_value=mock_config):
-        return PromptDispatcher(sleep_seconds=0.1)
+        return PromptDispatcher()
 
 
 def test_init_clears_redis_queue(mock_redis, mock_pipeline, mock_config):
@@ -47,9 +47,10 @@ def test_init_clears_redis_queue(mock_redis, mock_pipeline, mock_config):
 
 
 def test_get_conversation_batch_empty_queue(dispatcher):
-    dispatcher._redis.lpop.return_value = None
+    dispatcher._redis.blpop.return_value = [(), None]
+    dispatcher._redis.lrange.return_value = []
     result = dispatcher._get_conversation_batch()
-    assert result is None
+    assert not result.conv_ids and not result.histories
 
 
 def test_get_conversation_batch_single_item(dispatcher):
@@ -60,7 +61,8 @@ def test_get_conversation_batch_single_item(dispatcher):
             {'role': 'assistant', 'content': 'Hi there'}
         ]
     }
-    dispatcher._redis.lpop.side_effect = [json.dumps(batch_item), None]
+    dispatcher._redis.blpop.return_value = [(), json.dumps(batch_item)]
+    dispatcher._redis.lrange.return_value = []
     
     result = dispatcher._get_conversation_batch()
     
@@ -81,11 +83,9 @@ def test_get_conversation_batch_multiple_items(dispatcher):
         'conv_id': 'conv_2', 
         'history': [{'role': 'user', 'content': 'Message 2'}]
     }
-    dispatcher._redis.lpop.side_effect = [
-        json.dumps(batch_item1),
-        json.dumps(batch_item2),
-        None
-    ]
+    
+    dispatcher._redis.blpop.return_value = [(), json.dumps(batch_item1)]
+    dispatcher._redis.lrange.return_value = [json.dumps(batch_item2)]
     
     result = dispatcher._get_conversation_batch()
     
@@ -95,16 +95,17 @@ def test_get_conversation_batch_multiple_items(dispatcher):
 
 
 def test_get_conversation_batch_invalid_json(dispatcher):
-    dispatcher._redis.lpop.side_effect = ['invalid json', None]
-    
+    dispatcher._redis.blpop.return_value = [(), 'invalid json']
+    dispatcher._redis.lrange.return_value = []
     result = dispatcher._get_conversation_batch()
-    
-    assert result is None
+    assert not result.conv_ids and not result.histories
 
 
 def test_get_conversation_batch_missing_key(dispatcher):
     batch_item = {'conv_id': 'conv_123'}
-    dispatcher._redis.lpop.side_effect = [json.dumps(batch_item), None]
+
+    dispatcher._redis.blpop.return_value = [(), json.dumps(batch_item)]
+    dispatcher._redis.lrange.return_value = []
     
     result = dispatcher._get_conversation_batch()
     
@@ -198,66 +199,6 @@ def test_batch_processing_loop_no_data(dispatcher):
                 dispatcher._batch_processing_loop()
             except:
                 pass
-
-
-def test_batch_processing_loop_with_data(dispatcher):
-    batch_item = {
-        'conv_id': 'conv_123',
-        'history': [{'role': 'user', 'content': 'Hello'}]
-    }
-    
-    dispatcher._redis.lpop.side_effect = [json.dumps(batch_item), None, None]
-    
-    mock_responses = [AgentResponse(conv_id="conv_123", type="text", content="Response")]
-    dispatcher.pipeline.return_value = mock_responses
-    
-    with patch('time.sleep') as mock_sleep, \
-         patch.object(dispatcher, '_send_agent_responses') as mock_send:
-        
-        loop_count = 0
-        original_loop = dispatcher._batch_processing_loop
-        
-        def limited_loop():
-            nonlocal loop_count
-            if loop_count >= 2:
-                return
-            loop_count += 1
-            
-            start_t = time.time()
-            try:
-                batch = dispatcher._get_conversation_batch()
-                if batch is None:
-                    return
-                responses = dispatcher.pipeline(batch)
-                dispatcher._send_agent_responses(responses)
-            except Exception:
-                pass
-        
-        dispatcher._batch_processing_loop = limited_loop
-        dispatcher._batch_processing_loop()
-        
-        mock_send.assert_called_once_with(mock_responses)
-
-
-def test_batch_processing_loop_exception_handling(dispatcher):
-    dispatcher._redis.lpop.side_effect = Exception("Redis error")
-    
-    with patch('time.sleep') as mock_sleep:
-        loop_count = 0
-        
-        def limited_loop():
-            nonlocal loop_count
-            if loop_count >= 1:
-                return
-            loop_count += 1
-            
-            try:
-                batch = dispatcher._get_conversation_batch()
-            except Exception:
-                pass
-        
-        dispatcher._batch_processing_loop = limited_loop
-        dispatcher._batch_processing_loop()
 
 
 @pytest.mark.asyncio

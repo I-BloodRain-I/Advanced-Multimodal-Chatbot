@@ -41,39 +41,7 @@ def test_init():
     assert redis_instance.host == 'test_host'
     assert redis_instance.port == 1234
     assert redis_instance.decode_responses is False
-    assert redis_instance._redis is None
-
-
-@pytest.mark.asyncio
-async def test_connect_success(mock_redis):
-    redis_instance = AsyncRedis()
-    await redis_instance.connect()
-    
-    assert redis_instance._redis is not None
-    mock_redis.ping.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_connect_already_connected(mock_redis):
-    redis_instance = AsyncRedis()
-    redis_instance._redis = mock_redis
-    
-    await redis_instance.connect()
-    
-    mock_redis.ping.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_connect_error():
-    with patch('redis.asyncio.Redis') as mock_redis:
-        mock_client = AsyncMock()
-        mock_client.ping.side_effect = redis.RedisError("Connection failed")
-        mock_redis.return_value = mock_client
-        
-        redis_instance = AsyncRedis()
-        
-        with pytest.raises(redis.RedisError):
-            await redis_instance.connect()
+    assert isinstance(redis_instance._redis, redis.Redis)
 
 
 @pytest.mark.asyncio

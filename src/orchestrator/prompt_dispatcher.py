@@ -1,7 +1,6 @@
 import asyncio
 import threading
 import logging
-import time
 import json
 from typing import AsyncGenerator, Optional, List, Dict
 
@@ -22,12 +21,8 @@ class PromptDispatcher:
     through the pipeline, and streams back generated responses to the server.
 
     It enables asynchronous, batched handling of user prompts, improving throughput and stability.
-
-    Args:
-        sleep_seconds (float): Time to wait between polling attempts when no new data is available.
     """
-    def __init__(self, sleep_seconds: float = 1.0):
-        self.sleep_seconds = sleep_seconds
+    def __init__(self):
         self.pipeline = Pipeline.build()
         self._load_redis()
 
@@ -53,22 +48,11 @@ class PromptDispatcher:
         """
         Main loop that continuously checks Redis for new prompts, processes them using the pipeline,
         and streams the results back asynchronously.
-
-        If no data is available, it sleeps for the configured interval before checking again.
         """
-        def _calc_remain_seconds(sleep_seconds: int, start_time: float):
-            # Adjust sleep duration so the loop maintains a steady interval,
-            # compensating for time already spent processing
-            return max(0, sleep_seconds - (time.time() - start_time))
-
         while True:
-            start_t = time.time()
-
             try:
                 batch = self._get_conversation_batch()
                 if batch is None:
-                    # No data yet, wait and try again
-                    time.sleep(_calc_remain_seconds(self.sleep_seconds, start_t))
                     continue
 
                 logger.info("Starting pipeline execution")
@@ -77,9 +61,6 @@ class PromptDispatcher:
 
             except Exception as e:
                 logger.error(f"Error in batch processing loop.", exc_info=True)
-
-            # Sleep just enough to maintain loop frequency
-            time.sleep(_calc_remain_seconds(self.sleep_seconds, start_t))
     
     def _get_conversation_batch(self) -> Optional[ConversationBatch]:
         """
@@ -94,17 +75,14 @@ class PromptDispatcher:
         """
         batch_data: List[Dict[str, List[Dict[str, str]]]] = []
 
-        while True:
-            item = self._redis.lpop("process:messages_batch")
-            if item is None:
-                break
-            try:
-                batch_data.append(json.loads(item))
-            except Exception:
-                 logger.error(f"Failed to decode Redis batch item: {item}.", exc_info=True)
+        items = [self._redis.blpop("process:messages_batch")[-1]]   # Only the latest index is batch
+        items.extend(self._redis.lrange("process:messages_batch", start=0, end=-1))
+        try:
+            batch_data = [json.loads(item) for item in items]
+        except Exception:
+            logger.error(f"Failed to decode Redis batch item: {items}.", exc_info=True)
 
-        if not batch_data:
-            return None
+        logger.debug(f'{len(batch_data)} conversations received from the server')
 
         conv_ids, histories = [], []
         for conv_info in batch_data:
@@ -160,7 +138,10 @@ class PromptDispatcher:
         try:
             async for token in generator:
                 # Stream each token
-                self._redis.publish(conv_id, json.dumps({"type": "stream", "content": token}))
+                listeners_count = self._redis.publish(conv_id, json.dumps({"type": "stream", "content": token}))
+                if listeners_count == 0:    
+                    await generator.aclose()
+                    return
             # Signal end of stream
             self._redis.publish(conv_id, json.dumps({"type": "end_stream"}))      
         except Exception as e: 

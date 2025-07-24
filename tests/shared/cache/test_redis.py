@@ -38,9 +38,9 @@ def test_init_success(mock_redis):
     mock_client = Mock()
     mock_redis.return_value = mock_client
     
-    redis_instance = Redis(host='test_host', port=1234, decode_responses=False)
+    redis_instance = Redis(host='test_host', port=1234, db=0, decode_responses=False)
     
-    mock_redis.assert_called_once_with(host='test_host', port=1234, decode_responses=False)
+    mock_redis.assert_called_once_with(host='test_host', port=1234, db=0, decode_responses=False)
     mock_client.ping.assert_called_once()
     assert redis_instance.host == 'test_host'
     assert redis_instance.port == 1234
