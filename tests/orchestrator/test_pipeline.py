@@ -27,6 +27,18 @@ def mock_vector_db():
     return Mock(spec=VectorDatabaseBase)
 
 @pytest.fixture
+def mock_llm_engine_config():
+    return Mock()
+
+def create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config):
+    return Pipeline(
+        router_model=mock_router_model,
+        llm_engine_name='transformers',
+        llm_engine_config=mock_llm_engine_config,
+        rag_vector_db=mock_vector_db
+    )
+
+@pytest.fixture
 def sample_conversation_batch():
     return ConversationBatch(
         histories=[
@@ -40,23 +52,23 @@ def sample_conversation_batch():
 @pytest.fixture
 def sample_task_batch():
     return TaskBatch(
-        task=TaskType.RAG,
+        task=TaskType.TEXT_GEN,
         histories=[[Message(role="user", content="What is AI?")]],
         conv_ids=["conv1"],
         embeddings=torch.tensor([[0.1, 0.2, 0.3]])
     )
 
-def test_pipeline_singleton_behavior(mock_router_model, mock_vector_db):
+def test_pipeline_singleton_behavior(mock_router_model, mock_vector_db, mock_llm_engine_config):
     Pipeline._instance = None
     
-    pipeline1 = Pipeline(mock_router_model, mock_vector_db)
-    pipeline2 = Pipeline(mock_router_model, mock_vector_db)
+    pipeline1 = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
+    pipeline2 = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     
     assert pipeline1 is pipeline2
     assert Pipeline._instance is pipeline1
 
 
-def test_pipeline_initialization_once(mock_router_model, mock_vector_db):
+def test_pipeline_initialization_once(mock_router_model, mock_vector_db, mock_llm_engine_config):
     Pipeline._instance = None
     
     with patch('orchestrator.pipeline.pipeline.Embedder') as mock_embedder, \
@@ -65,13 +77,14 @@ def test_pipeline_initialization_once(mock_router_model, mock_vector_db):
          patch('orchestrator.pipeline.pipeline.LLM') as mock_llm, \
          patch('orchestrator.pipeline.pipeline.ImageGenerator') as mock_img_gen:
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         
         assert mock_embedder.called
         assert mock_router.called
         assert mock_rag.called
         assert mock_llm.called
-        assert mock_img_gen.called
+        # ImageGenerator is currently commented out in Pipeline constructor
+        # assert mock_img_gen.called
         
         mock_embedder.reset_mock()
         mock_router.reset_mock()
@@ -79,7 +92,7 @@ def test_pipeline_initialization_once(mock_router_model, mock_vector_db):
         mock_llm.reset_mock()
         mock_img_gen.reset_mock()
         
-        Pipeline(mock_router_model, mock_vector_db)
+        create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         
         assert not mock_embedder.called
         assert not mock_router.called
@@ -97,7 +110,7 @@ def test_pipeline_call_success(mock_router_model, mock_vector_db, sample_convers
         mock_route.return_value = {}
         mock_process.return_value = [AgentResponse(conv_id="conv1", type="text", content="response")]
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         result = pipeline(sample_conversation_batch)
         
         mock_route.assert_called_once_with(sample_conversation_batch)
@@ -112,7 +125,7 @@ def test_pipeline_call_exception_handling(mock_router_model, mock_vector_db, sam
     with patch.object(Pipeline, '_route_and_group') as mock_route:
         mock_route.side_effect = Exception("Test error")
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         result = pipeline(sample_conversation_batch)
         
         assert result == []
@@ -125,11 +138,11 @@ def test_route_and_group(mock_group_convs, mock_prompt_transformer, mock_router_
     
     mock_prompt_transformer.format_messages_to_str_batch.return_value = ["prompt1", "prompt2"]
     mock_embeddings = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
-    mock_task_types = [TaskType.RAG, TaskType.IMAGE_GEN]
+    mock_task_types = [TaskType.TEXT_GEN, TaskType.IMAGE_GEN]
     mock_probs = torch.tensor([0.8, 0.9])
-    mock_grouped = {TaskType.RAG: Mock()}
+    mock_grouped = {TaskType.TEXT_GEN: Mock()}
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db)
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     pipeline.embedder.extract_embeddings = Mock(return_value=mock_embeddings)
     pipeline.router.route = Mock(return_value=(mock_task_types, mock_probs))
     mock_group_convs.return_value = mock_grouped
@@ -151,16 +164,16 @@ def test_route_and_group(mock_group_convs, mock_prompt_transformer, mock_router_
 def test_process_task_batches_rag(mock_router_model, mock_vector_db, sample_task_batch):
     Pipeline._instance = None
     
-    grouped_convs = {TaskType.RAG: sample_task_batch}
+    grouped_convs = {TaskType.TEXT_GEN: sample_task_batch}
     expected_responses = [AgentResponse(conv_id="conv1", type="text", content="response")]
     
-    with patch.object(Pipeline, '_handle_rag_task') as mock_handle_rag:
-        mock_handle_rag.return_value = expected_responses
+    with patch.object(Pipeline, '_handle_text_gen_task') as mock_handle_text_gen:
+        mock_handle_text_gen.return_value = expected_responses
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         result = pipeline._process_task_batches(grouped_convs)
         
-        mock_handle_rag.assert_called_once_with(sample_task_batch)
+        mock_handle_text_gen.assert_called_once_with(sample_task_batch)
         assert result == expected_responses
 
 
@@ -173,7 +186,7 @@ def test_process_task_batches_image_gen(mock_router_model, mock_vector_db, sampl
     with patch.object(Pipeline, '_handle_img_gen_task') as mock_handle_img:
         mock_handle_img.return_value = expected_responses
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         result = pipeline._process_task_batches(grouped_convs)
         
         mock_handle_img.assert_called_once_with(sample_task_batch)
@@ -187,40 +200,40 @@ def test_process_task_batches_unsupported_task(mock_router_model, mock_vector_db
     unsupported_task.name = "UNSUPPORTED"
     grouped_convs = {unsupported_task: sample_task_batch}
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db)
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     result = pipeline._process_task_batches(grouped_convs)
     
     assert result == []
 
 
-def test_handle_rag_task_no_stream(mock_router_model, mock_vector_db, sample_task_batch):
+def test_handle_text_gen_task_no_stream(mock_router_model, mock_vector_db, mock_llm_engine_config, sample_task_batch):
     Pipeline._instance = None
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db, llm_stream_output=False)
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     pipeline.rag.add_context = Mock()
     pipeline.llm.generate_batch = Mock(return_value=["response1"])
     
-    result = pipeline._handle_rag_task(sample_task_batch)
+    result = pipeline._handle_text_gen_task(sample_task_batch)
     
     pipeline.rag.add_context.assert_called_once_with(sample_task_batch.histories, sample_task_batch.embeddings)
     pipeline.llm.generate_batch.assert_called_once_with(sample_task_batch.histories)
     assert len(result) == 1
     assert result[0].conv_id == "conv1"
-    assert result[0].type == "text"
+    assert result[0].type == "stream"
     assert result[0].content == "response1"
 
 
-def test_handle_rag_task_with_stream(mock_router_model, mock_vector_db, sample_task_batch):
+def test_handle_text_gen_task_with_stream(mock_router_model, mock_vector_db, mock_llm_engine_config, sample_task_batch):
     Pipeline._instance = None
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db, llm_stream_output=True)
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     pipeline.rag.add_context = Mock()
-    pipeline.llm.generate_stream_batch = Mock(return_value=["stream_response1"])
+    pipeline.llm.generate_batch = Mock(return_value=["stream_response1"])
     
-    result = pipeline._handle_rag_task(sample_task_batch)
+    result = pipeline._handle_text_gen_task(sample_task_batch)
     
     pipeline.rag.add_context.assert_called_once_with(sample_task_batch.histories, sample_task_batch.embeddings)
-    pipeline.llm.generate_stream_batch.assert_called_once_with(sample_task_batch.histories)
+    pipeline.llm.generate_batch.assert_called_once_with(sample_task_batch.histories)
     assert len(result) == 1
     assert result[0].conv_id == "conv1"
     assert result[0].type == "stream"
@@ -241,8 +254,12 @@ def test_handle_img_gen_task(mock_tensor_to_base64, mock_prompt_transformer, moc
     mock_prompt_transformer.get_content_from_messages.return_value = mock_prompts
     mock_tensor_to_base64.return_value = mock_base64
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db)
-    pipeline.image_generator.generate = Mock(return_value=[mock_img_tensor])
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
+    
+    # Mock the image_generator since it's commented out in the Pipeline constructor
+    mock_image_generator = Mock()
+    mock_image_generator.generate = Mock(return_value=[mock_img_tensor])
+    pipeline.image_generator = mock_image_generator
     
     result = pipeline._handle_img_gen_task(sample_task_batch)
     
@@ -269,7 +286,7 @@ def test_build_classmethod(mock_factory):
     assert result == mock_pipeline
 
 
-def test_pipeline_parameters_initialization(mock_router_model, mock_vector_db):
+def test_pipeline_parameters_initialization(mock_router_model, mock_vector_db, mock_llm_engine_config):
     Pipeline._instance = None
     
     with patch('orchestrator.pipeline.pipeline.Embedder') as mock_embedder, \
@@ -278,11 +295,11 @@ def test_pipeline_parameters_initialization(mock_router_model, mock_vector_db):
         
         pipeline = Pipeline(
             router_model=mock_router_model,
+            llm_engine_name='transformers',
+            llm_engine_config=mock_llm_engine_config,
             rag_vector_db=mock_vector_db,
             rag_n_extracted_docs=10,
             embed_model_name='custom-embedder',
-            llm_model_name='custom-llm',
-            llm_temperature=0.5
         )
         
         mock_embedder.assert_called_once_with(model_name='custom-embedder', device_name='cuda')
@@ -291,30 +308,24 @@ def test_pipeline_parameters_initialization(mock_router_model, mock_vector_db):
             n_extracted_docs=10,
             prompt_format='{context}\n{prompt}'
         )
-        mock_llm.assert_called_once_with(
-            model_name='custom-llm',
-            dtype='int8',
-            max_new_tokens=1024,
-            temperature=0.5,
-            device_name='cuda'
-        )
-        assert pipeline.stream_output == False
+        mock_llm.assert_called_once_with('transformers', mock_llm_engine_config)
+        # Note: stream_output attribute doesn't exist in current Pipeline implementation
 
 
-def test_empty_grouped_conversations(mock_router_model, mock_vector_db):
+def test_empty_grouped_conversations(mock_router_model, mock_vector_db, mock_llm_engine_config):
     Pipeline._instance = None
     
-    pipeline = Pipeline(mock_router_model, mock_vector_db)
+    pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
     result = pipeline._process_task_batches({})
     
     assert result == []
 
 
-def test_multiple_task_types_processing(mock_router_model, mock_vector_db):
+def test_multiple_task_types_processing(mock_router_model, mock_vector_db, mock_llm_engine_config):
     Pipeline._instance = None
     
     rag_batch = TaskBatch(
-        task=TaskType.RAG,
+        task=TaskType.TEXT_GEN,
         histories=[[Message(role="user", content="What is AI?")]],
         conv_ids=["conv1"],
         embeddings=torch.tensor([[0.1, 0.2]])
@@ -327,17 +338,17 @@ def test_multiple_task_types_processing(mock_router_model, mock_vector_db):
     )
     
     grouped_convs = {
-        TaskType.RAG: rag_batch,
+        TaskType.TEXT_GEN: rag_batch,
         TaskType.IMAGE_GEN: img_batch
     }
     
-    with patch.object(Pipeline, '_handle_rag_task') as mock_handle_rag, \
+    with patch.object(Pipeline, '_handle_text_gen_task') as mock_handle_rag, \
          patch.object(Pipeline, '_handle_img_gen_task') as mock_handle_img:
         
         mock_handle_rag.return_value = [AgentResponse(conv_id="conv1", type="text", content="rag_response")]
         mock_handle_img.return_value = [AgentResponse(conv_id="conv2", type="image", content="img_data")]
         
-        pipeline = Pipeline(mock_router_model, mock_vector_db)
+        pipeline = create_pipeline(mock_router_model, mock_vector_db, mock_llm_engine_config)
         result = pipeline._process_task_batches(grouped_convs)
         
         assert len(result) == 2

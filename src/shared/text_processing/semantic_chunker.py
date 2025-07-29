@@ -1,3 +1,16 @@
+"""
+Semantic text chunking based on sentence similarity.
+
+This module provides the SemanticChunker class that intelligently splits text
+into chunks based on semantic similarity between sentences. It uses sentence
+embeddings to determine when to break chunks, ensuring related content stays
+together while respecting token limits.
+
+The chunker uses a greedy grouping algorithm with cosine similarity to maintain
+semantic coherence within chunks, making it ideal for RAG systems and document
+processing where context preservation is important.
+"""
+
 from typing import List
 import logging
 
@@ -22,13 +35,13 @@ class SemanticChunker:
     into token-length-constrained chunks.
 
     Args:
-        model_name (str): Name of the SentenceTransformer model to load.
-        chunk_token_limit (int): Maximum number of tokens allowed per chunk.
-        similarity_threshold (float): Minimum cosine similarity to keep sentences in the same chunk.
-        min_chunk_tokens (int): Minimum number of tokens required for a chunk; small chunks may be merged.
-        batch_size (int): Batch size for embedding sentences.
-        device_name (str): Name of the torch device (e.g., 'cuda' or 'cpu').
-        show_progress (bool): Whether to display progress bars during processing.
+        model_name: Name of the SentenceTransformer model to load.
+        chunk_token_limit: Maximum number of tokens allowed per chunk.
+        similarity_threshold: Minimum cosine similarity to keep sentences in the same chunk.
+        min_chunk_tokens: Minimum number of tokens required for a chunk; small chunks may be merged.
+        batch_size: Batch size for embedding sentences.
+        device_name: Name of the torch device (e.g., 'cuda' or 'cpu').
+        show_progress: Whether to display progress bars during processing.
     """
 
     def __init__(self,
@@ -89,10 +102,10 @@ class SemanticChunker:
         Split input text into semantically coherent chunks.
 
         Args:
-            text (str): The raw input text to be chunked.
+            text: The raw input text to be chunked.
 
         Returns:
-            List[str]: A list of chunked strings, each fitting the semantic
+            A list of chunked strings, each fitting the semantic
             and token constraints.
         """
         if not text.strip():

@@ -1,3 +1,15 @@
+"""
+Main dispatcher module for processing conversation batches through the AI pipeline.
+
+This module contains the PromptDispatcher class that acts as the central coordinator
+between the web server and the AI processing pipeline. It continuously polls Redis
+for incoming conversation requests, processes them through the pipeline, and streams
+responses back to connected clients.
+
+The dispatcher enables asynchronous, batched processing of user prompts for improved
+throughput and system stability.
+"""
+
 import asyncio
 import threading
 import logging
@@ -70,8 +82,7 @@ class PromptDispatcher:
         Invalid or malformed entries are logged and skipped.
 
         Returns:
-            Optional[ConversationBatch]: A batch of conversation IDs and their histories,
-                                         or None if the queue is empty.
+            A batch of conversation IDs and their histories, or None if the queue is empty.
         """
         batch_data: List[Dict[str, List[Dict[str, str]]]] = []
 
@@ -132,8 +143,8 @@ class PromptDispatcher:
         Once all tokens are sent, a special end-of-stream message is published.
 
         Args:
-            conv_id (str): Unique conversation ID used as the Redis channel.
-            generator (AsyncGenerator[str, None]): Asynchronous generator producing response tokens.
+            conv_id: Unique conversation ID used as the Redis channel.
+            generator: Asynchronous generator producing response tokens.
         """
         try:
             async for token in generator:
@@ -152,9 +163,9 @@ class PromptDispatcher:
         Sends a complete response (text or image) to the client via Redis.
 
         Args:
-            conv_id (str): Unique conversation ID to publish to.
-            type (str): Response type ("text", "image", etc.).
-            content (str): The actual content to send.
+            conv_id: Unique conversation ID to publish to.
+            type: Response type ("text", "image", etc.).
+            content: The actual content to send.
         """
         try:
             self._redis.publish(conv_id, json.dumps({"type": type, "content": content}))

@@ -1,3 +1,10 @@
+"""
+Image generation module using Stable Diffusion models.
+
+Provides a singleton ImageGenerator class that handles text-to-image generation using
+diffusion models from the HuggingFace diffusers library. Supports model caching,
+GPU acceleration, and optional refinement stages for higher quality outputs.
+"""
 import logging
 from pathlib import Path
 from typing import Any, List, Optional, Union
@@ -8,12 +15,12 @@ from diffusers import (
 )
 from diffusers.utils import logging as diff_logging
 diff_logging.disable_progress_bar()  # Disable progress bar for cleaner logs
-
 import torch
 
+from core.entities.enums import ModelDType
 from modules.image_generation.utils import get_scheduler
 from shared.config import Config
-from shared.utils import get_torch_device
+from shared.utils import get_torch_device, to_torch_dtype
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +39,12 @@ class ImageGenerator:
     based on prompts with configurable parameters.
 
     Args:
-        model_name (str): Name or path of the model to load.
-        device (Union[str, torch.device]): Torch device (e.g., 'cuda', 'cpu').
-        dtype (str): Precision type to use ('fp16' or 'fp32').
-        scheduler_type (str): Scheduler type for diffusion process.
-        use_refiner (bool): Whether to apply an additional refinement stage.
-        refiner_name (str): Name of the refiner model to load if applicable.
+        model_name: Name or path of the model to load.
+        device: Torch device (e.g., 'cuda', 'cpu').
+        dtype: Precision type to use ('FLOAT16' or 'FLOAT32').
+        scheduler_type: Scheduler type for diffusion process.
+        use_refiner: Whether to apply an additional refinement stage.
+        refiner_name: Name of the refiner model to load if applicable.
     """
     _instance = None
 
@@ -50,7 +57,7 @@ class ImageGenerator:
     def __init__(self, 
                  model_name: str, 
                  device: Union[str, torch.device] = 'cuda',
-                 dtype: str = 'fp16',
+                 dtype: ModelDType = ModelDType.AUTO,
                  scheduler_type: str = 'euler_ancestral',
                  use_refiner: bool = False,
                  refiner_name: str = 'stabilityai/stable-diffusion-xl-refiner-1.0'):
@@ -58,7 +65,7 @@ class ImageGenerator:
             return
             
         self._models_dir = Path(Config.get('models_dir'))
-        self._torch_dtype = torch.half if dtype =='fp16' else torch.float
+        self._torch_dtype = to_torch_dtype(dtype)
         self._scheduler_type = scheduler_type
         
         self.device = get_torch_device(device)
@@ -114,15 +121,19 @@ class ImageGenerator:
         Generates images from a list of prompts.
 
         Args:
-            prompts (List[str]): List of textual prompts for image generation.
-            negative_prompts (Optional[List[str]]): Prompts to suppress unwanted features.
-            width (int): Width of the output image in pixels.
-            height (int): Height of the output image in pixels.
-            guidance_scale (float): How strongly the model should follow the prompt.
-            num_inference_steps (int): Number of steps in the diffusion process.
+            prompts: List of textual prompts for image generation.
+            negative_prompts: Prompts to suppress unwanted features.
+            width: Width of the output image in pixels.
+            height: Height of the output image in pixels.
+            guidance_scale: How strongly the model should follow the prompt.
+            num_inference_steps: Number of steps in the diffusion process.
 
         Returns:
-            List[torch.Tensor]: List of generated image tensors.
+            List of generated image tensors.
+            
+        Raises:
+            ValueError: If prompts and negative_prompts have different lengths.
+            Exception: If image generation fails.
         """
         
         if negative_prompts:

@@ -23,8 +23,11 @@ def create_app(mount_path: str = '/static') -> FastAPI:
     Initializes a Redis client at startup and attaches it to the app state.
     Ensures clean Redis shutdown on app exit.
 
+    Args:
+        mount_path: Path to mount static files directory.
+
     Returns:
-        FastAPI: A configured FastAPI application instance.
+        A configured FastAPI application instance.
     """
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -52,9 +55,9 @@ def start_server(app: FastAPI, host: str, port: int, **kwargs):
     Start the FastAPI application using Uvicorn.
 
     Args:
-        app (FastAPI): The FastAPI application to serve.
-        host (str): Host IP or name to bind the server to.
-        port (int): Port number to listen on.
+        app: The FastAPI application to serve.
+        host: Host IP or name to bind the server to.
+        port: Port number to listen on.
         **kwargs: Optional additional arguments to pass to uvicorn.run.
     """
     uvicorn.run(app, host=host, port=port, **kwargs)
@@ -65,11 +68,11 @@ def load_listener(manager: Optional[ConnectionManager] = None) -> StreamSubscrib
     Create and return a Redis stream subscriber for handling message broadcasting.
 
     Args:
-        manager (Optional[ConnectionManager]): The connection manager for WebSocket clients.
-            If None, a new instance will be used.
+        manager: The connection manager for WebSocket clients.
+                 If None, a new instance will be used.
 
     Returns:
-        StreamSubscriber: An instance set up to listen to Redis pub/sub streams.
+        An instance set up to listen to Redis pub/sub streams.
     """
     return StreamSubscriber(manager=manager, 
                             host=require_env_var('REDIS_HOST'), 
@@ -83,9 +86,12 @@ async def store_prompt(redis: AsyncRedis, conv_id: str, prompt_data: Dict[str, L
     Pushes the serialized JSON payload onto the Redis list under the "process:messages_batch" key.
 
     Args:
-        redis (AsyncRedis): The Redis client to use for storing the data.
-        conv_id (str): The conversation ID associated with the prompt.
-        prompt_data (Dict[str, List[Dict[str, str]]]): The prompt content to store.
+        redis: The Redis client to use for storing the data.
+        conv_id: The conversation ID associated with the prompt.
+        prompt_data: The prompt content to store.
+        
+    Raises:
+        Exception: If storing the prompt data fails.
     """
     try:
         await redis.rpush("process:messages_batch", json.dumps(prompt_data))

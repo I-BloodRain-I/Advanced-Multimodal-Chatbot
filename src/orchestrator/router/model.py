@@ -1,3 +1,10 @@
+"""
+Neural network model for task classification.
+
+Contains the TaskClassifier model architecture used to classify user prompts into
+different task categories (text generation, image generation, web search, etc.).
+Implements a multi-layer perceptron with batch normalization and dropout.
+"""
 import torch
 import torch.nn as nn
 
@@ -10,9 +17,9 @@ class TaskClassifier(nn.Module):
     with BatchNorm and Dropout layers to help regularize training, especially on smaller datasets.
 
     Args:
-        embed_dim (int): Dimension of the input embedding vectors.
-        n_classes (int): Number of output classes to predict.
-        dropout (float): Dropout rate applied after each ReLU activation (default is 0.2).
+        embed_dim: Dimension of the input embedding vectors.
+        n_classes: Number of output classes to predict.
+        dropout: Dropout rate applied after each ReLU activation (default is 0.2).
     """
 
     def __init__(self,
@@ -35,4 +42,13 @@ class TaskClassifier(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the network.
+        
+        Args:
+            x: Input embedding tensor of shape (batch_size, embed_dim).
+            
+        Returns:
+            Output logits tensor of shape (batch_size, n_classes).
+        """
         return self.net(x)

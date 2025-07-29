@@ -24,9 +24,9 @@ class RAG:
     Retrieval-Augmented Generation pipeline for indexing documents and enriching prompts with context.
 
     Args:
-        vector_db (VectorDatabaseBase): Backend vector database to store and query documents.
-        n_extracted_docs (int): Number of similar documents to retrieve per query.
-        prompt_format (str): Template for inserting context into prompts, must include '{context}' and '{prompt}'.
+        vector_db: Backend vector database to store and query documents.
+        n_extracted_docs: Number of similar documents to retrieve per query.
+        prompt_format: Template for inserting context into prompts, must include '{context}' and '{prompt}'.
     """
     def __init__(self, 
                  vector_db: VectorDatabaseBase, 
@@ -57,10 +57,10 @@ class RAG:
         Retrieves documents most similar to the input embeddings from the vector database.
 
         Args:
-            embeddings (Union[List, np.ndarray, Tensor]): Query embeddings for document retrieval.
+            embeddings: Query embeddings for document retrieval.
 
         Returns:
-            List[List[DocumentChunk]]: A list of lists, each containing retrieved DocumentChunk per input embedding.
+            A list of lists, each containing retrieved DocumentChunk per input embedding.
         """
         # Normalize embeddings to numpy format and perform search
         normalized = self._normalize_embeddings(embeddings)
@@ -74,8 +74,8 @@ class RAG:
         using the configured prompt_format.
 
         Args:
-            messages_batch (List[MessageHistory]): A batch of message histories.
-            embeddings (EmbeddingArray): Query embeddings to retrieve relevant documents.
+            messages_batch: A batch of message histories.
+            embeddings: Query embeddings to retrieve relevant documents.
         """
         try:
             # Normalize the input embeddings to ensure consistency in similarity search

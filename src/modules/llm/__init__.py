@@ -1,2 +1,2 @@
 from .llm import LLM
-from .text_streamer import TextStreamer
+from .components import TransformersTextStreamer

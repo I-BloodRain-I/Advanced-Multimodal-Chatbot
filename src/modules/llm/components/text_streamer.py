@@ -1,6 +1,18 @@
+"""
+Text streaming component for asynchronous token-by-token generation.
+
+This module provides the TransformersTextStreamer class that handles streaming
+text generation using HuggingFace Transformers. It supports custom stopping
+criteria, asynchronous token generation, and proper resource cleanup for
+real-time streaming responses.
+
+The streamer manages tokenization, generation parameters, and token-level
+streaming while handling various stopping conditions and error scenarios.
+"""
+
 import asyncio
 import threading
-from typing import AsyncGenerator, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 import logging
 
 import torch
@@ -13,6 +25,7 @@ from transformers import (
 )
 
 from core.entities.types import MessageHistory
+from modules.llm.configs import LLMGenerationConfig
 from shared.text_processing.prompt_transformer import PromptTransformer
 
 logger = logging.getLogger(__name__)
@@ -24,8 +37,8 @@ class StopOnTokens(StoppingCriteria):
     def __init__(self, stop_token_ids: List[int], stop_event: threading.Event):
         """
         Args:
-            stop_token_ids (List[int]): List of token IDs that trigger stopping.
-            stop_event (threading.Event): Threading event to signal when generation should stop.
+            stop_token_ids: List of token IDs that trigger stopping.
+            stop_event: Threading event to signal when generation should stop.
         """
         super().__init__()
         self.stop_token_ids = stop_token_ids
@@ -40,38 +53,27 @@ class StopOnTokens(StoppingCriteria):
         # Check if the last generated token is in our stop tokens
         return input_ids[0][-1].item() in self.stop_token_ids
 
-class TextStreamer:
+class TransformersTextStreamer:
     """
     The text streamer for asynchronous token-by-token generation
 
     Args:
-        model (AutoModelForCausalLM): The causal language model.
-        tokenizer (AutoTokenizer): The tokenizer to use.
-        max_new_tokens (int): Maximum tokens to generate.
-        temperature (float): Sampling temperature.
+        model: The causal language model.
+        tokenizer: The tokenizer to use.
     """
-    def __init__(self, 
-                 model: AutoModelForCausalLM, 
-                 tokenizer: AutoTokenizer,
-                 max_new_tokens: int = 1024,
-                 temperature: float = 0.7):
+    def __init__(self, model: AutoModelForCausalLM, tokenizer: AutoTokenizer):
         self.model = model
         self.tokenizer = tokenizer
-        self.device = next(model.parameters()).device
-        self.max_new_tokens = max_new_tokens
-        self.temperature = temperature
-
-        logger.debug(f"TextStreamer initialized with max_new_tokens={self.max_new_tokens}, "
-                     f"temperature={self.temperature}, device={self.device}")
+        self.device = model.device
+        logger.info(f"TextStreamer initialized on device={self.device}")
 
     def _create_stopping_criteria(self) -> Tuple[Optional[StoppingCriteriaList], threading.Event]:
         """
         Creats a stopping criteria list based on predefined stop sequences.
 
         Returns:
-            Tuple[Optional[StoppingCriteriaList], threading.Event]: 
-                A list of stopping criteria or None if no valid sequences are found. 
-                And threading event to signal when generation should stop.
+            A list of stopping criteria or None if no valid sequences are found. 
+            And threading event to signal when generation should stop.
         """
         logger.debug("Creating stopping criteria")
 
@@ -105,18 +107,18 @@ class TextStreamer:
         
         return None, stop_event
 
-    async def _create_stream_generator(self, messages: MessageHistory) -> AsyncGenerator[str, None]:
+    async def _create_generator(self, messages: MessageHistory, generation_kwargs: Dict[str, Any]) -> AsyncGenerator[str, None]:
         """
         Asynchronously generates tokens one-by-one for a message sequence.
 
         Yields:
-            str: Next generated token.
+            Next generated token.
         """
         try:    
             formatted_prompt = PromptTransformer.format_messages_to_str(messages, self.tokenizer)
             logger.debug(f"Formatted prompt length: {len(formatted_prompt)} characters")
         except Exception as e:
-            logger.error(f"Failed to format messages: {e}", exc_info=True)
+            logger.error(f"Failed to format messages: {e}")
             raise
         
         try:
@@ -132,30 +134,28 @@ class TextStreamer:
             attention_mask = encoded_inputs["attention_mask"].to(self.device)
 
             logger.debug(f"Tokenized input - input_ids shape: {input_ids.shape}, "
-                        f"attention_mask shape: {attention_mask.shape}")
+                         f"attention_mask shape: {attention_mask.shape}")
         except Exception as e:
-            logger.error(f"Failed to tokenize input: {e}", exc_info=True)
+            logger.error(f"Failed to tokenize input: {e}")
             raise
 
         streamer = AsyncTextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
         
-        generation_kwargs = {
+        generation_kwargs.update({
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "max_new_tokens": self.max_new_tokens,
             "do_sample": True,
-            "temperature": self.temperature,
             "pad_token_id": self.tokenizer.pad_token_id,
             "eos_token_id": self.tokenizer.eos_token_id,
             "streamer": streamer,
-        }
+        })
         
         stopping_criteria, stop_event = self._create_stopping_criteria()
         if stopping_criteria:
             generation_kwargs["stopping_criteria"] = stopping_criteria
         
-        logger.debug(f"Generation parameters: max_new_tokens={self.max_new_tokens}, "
-                     f"temperature={self.temperature}, stopping_criteria={stopping_criteria is not None}")
+        logger.debug(f"Generation parameters: max_new_tokens={generation_kwargs['max_new_tokens']}, "
+                     f"temperature={generation_kwargs['temperature']}, stopping_criteria={stopping_criteria is not None}")
 
         # Start generation using asyncio.to_thread
         generation_task = asyncio.create_task(
@@ -168,8 +168,6 @@ class TextStreamer:
         try:
             async for token in streamer:
                 if token:
-                    if token_count == self.max_new_tokens:
-                        break
                     token_count += 1
                     yield token
             
@@ -177,7 +175,7 @@ class TextStreamer:
             await generation_task
             
         except Exception as e:
-            logger.error(f"Error during token streaming: {e}", exc_info=True)
+            logger.error(f"Error during token streaming: {e}")
             generation_task.cancel()
             raise
 
@@ -188,51 +186,104 @@ class TextStreamer:
                 generation_task.cancel()
             logger.debug(f"Generation completed. Total tokens generated: {token_count}")
 
-
-    def generate_stream(self, messages: MessageHistory) -> AsyncGenerator[str, None]:
+    def create_generator(self, 
+                         messages: MessageHistory,
+                         config: Optional[LLMGenerationConfig] = None,
+                         **kwargs) -> AsyncGenerator[str, None]:
         """
-        Starts streaming generation for a list of messages.
-
+        Create a streaming text generator for a single conversation.
+        
         Args:
-            messages (MessageHistory): A list of user-assistant messages.
-
+            messages: Conversation history to use as prompt context
+            config: Optional generation configuration object
+            
         Returns:
-            AsyncGenerator[str, None]: Token stream generator.
+            Stream of generated text tokens
+            
+        Raises:
+            ValueError: If messages is empty or invalid
+            Exception: If model generation fails
         """
         logger.info(f"Starting stream generation for {len(messages)} messages")
 
         if not messages:
-            logger.warning("Empty messages provided")
+            error_txt = "Messages cannot be empty"
+            logger.error(error_txt)
+            raise ValueError(error_txt)
         
+        # Use provided config or create default    
+        generation_config = config or LLMGenerationConfig()
+
+        # Create params for new generator
+        config_dict = {
+            'temperature': generation_config.temperature,
+            'top_p': generation_config.top_p,
+            'max_new_tokens': generation_config.max_new_tokens
+        }
+        final_params = generation_config.extra_data.copy()
+        final_params.update(config_dict)
+
         try:
-            return self._create_stream_generator(messages)
-        except Exception as e:
-            logger.error(f"Failed to generate stream: {e}", exc_info=True)
+            return self._create_generator(messages, final_params)
+        except Exception:
+            logger.error("Failed to create generator")
             raise
 
-    def generate_stream_batch(self, messages_batch: List[MessageHistory]) -> List[AsyncGenerator[str, None]]:
+    def create_batch_generators(self, 
+                                messages_batch: List[MessageHistory], 
+                                configs: Optional[List[LLMGenerationConfig]] = None,
+                                **kwargs) -> List[AsyncGenerator[str, None]]:
         """
-        Starts batch streaming generation for multiple sets of messages.
-
+        Create multiple streaming text generators for batch processing.
+        
         Args:
-            messages_batch (List[MessageHistory]): List of message sequences.
-
+            messages_batch: List of conversation histories to process
+            configs: Optional list of generation configs (one per message history)
+                        
         Returns:
-            List[AsyncGenerator[str, None]]: List of token stream generators.
-        """
-        logger.info(f"Starting batch stream generation for {len(messages_batch)} message batches")
-
-        if not messages_batch:
-            logger.warning("Empty messages batch provided")
-            return []
+            List of text stream generators
             
-        try:
-            generators = []
-            for i, messages in enumerate(messages_batch):
-                logger.debug(f"Processing batch item {i+1}/{len(messages_batch)} with {len(messages)} messages")
-                generators.append(self._create_stream_generator(messages))
-            return generators
+        Raises:
+            ValueError: If input validation fails
+            Exception: If any generator creation fails
+        """
+        if not messages_batch:
+            error_txt = "Messages batch cannot be empty"
+            logger.error(error_txt)
+            raise ValueError(error_txt)
         
-        except Exception as e:  
-            logger.error(f"Failed to generate batch streams: {e}", exc_info=True)
-            raise
+        batch_size = len(messages_batch)
+        
+        # Validate configs list if provided
+        if configs and len(configs) != batch_size:
+            error_txt = f"Configs length ({len(configs)}) must match batch size ({batch_size})"
+            logger.error(error_txt)
+            raise ValueError(error_txt)
+        
+        generators = []
+        
+        for i, messages in enumerate(messages_batch):
+            try:
+                # Get config for this generation (if provided)
+                config = configs[i] if configs else None
+                
+                # Extract parameters for this specific generation
+                generation_kwargs = {}
+                for param_name, param_values in kwargs.items():
+                    param_value = param_values[i]
+                    if param_value is not None:  # Only include non-None values
+                        generation_kwargs[param_name] = param_value
+                
+                # Create generator for this message history
+                generator = self.create_generator(
+                    messages=messages,
+                    config=config,
+                    **generation_kwargs
+                )
+                generators.append(generator)
+                
+            except Exception:
+                logger.error(f"Failed to create generator for batch item {i}")
+                raise
+        
+        return generators

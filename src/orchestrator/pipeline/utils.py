@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from collections import defaultdict
 import logging
 import base64
@@ -23,14 +23,14 @@ def group_conversations_by_task(
     Groups (conversation_id, prompt, embedding) tuples into batches based on their task type.
 
     Args:
-        messages (List[List[Message]]): A list of message histories, each a list of Message objects.
-        task_types (List[TaskType]): List of task types corresponding to each conversation.
-        conv_ids (List[str]): List of unique conversation IDs.
-        embeddings (Optional[EmbeddingArray]): Optional list of embeddings associated with each message.
+        messages: A list of message histories, each a list of Message objects.
+        task_types: List of task types corresponding to each conversation.
+        conv_ids: List of unique conversation IDs.
+        embeddings: Optional list of embeddings associated with each message.
                                                If not provided, defaults to None.
 
     Returns:
-        Dict[TaskType, TaskBatch]: A dictionary mapping each task type to its corresponding TaskBatch object.
+        A dictionary mapping each task type to its corresponding TaskBatch object.
     """
 
     # Validate that all input lists are the same length
@@ -72,11 +72,11 @@ def tensor_to_base64(tensor: torch.Tensor) -> str:
     assuming 1 or 3 channels (grayscale or RGB).
 
     Args:
-        tensor (torch.Tensor): Image tensor to convert. Must be in either [C, H, W] or [H, W, C] format,
+        tensor: Image tensor to convert. Must be in either [C, H, W] or [H, W, C] format,
                                with 1 or 3 channels.
 
     Returns:
-        str: Base64-encoded PNG representation of the image.
+        Base64-encoded PNG representation of the image.
     """
     if tensor.ndim == 3 and tensor.shape[0] in [1, 3]:  # [C, H, W]
         image = TF.to_pil_image(tensor)
@@ -93,3 +93,21 @@ def tensor_to_base64(tensor: torch.Tensor) -> str:
     # Convert image bytes to base64 string
     img_bytes = buffered.getvalue()
     return base64.b64encode(img_bytes).decode('utf-8')
+
+
+def convert_numeric_strings(value: Any) -> Any:
+    """
+    Convert string values that are only digits to their appropriate numeric types.
+    
+    Args:
+        value: The value to potentially convert
+        
+    Returns:
+        The converted value (int, float) or original value if not a numeric string
+    """
+    if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+        if '.' in value:
+            return float(value)
+        else:
+            return int(value)
+    return value

@@ -14,11 +14,11 @@ def get_scheduler(pipeline, scheduler_type="euler") -> Any:
 
     Args:
         pipeline: The diffusion pipeline to configure the scheduler for.
-        scheduler_type (str): Type of scheduler to use. One of:
+        scheduler_type: Type of scheduler to use. One of:
             ['euler', 'euler_ancestral', 'dpm', 'ddim', 'lms'].
 
     Returns:
-        Any: An instance of the selected scheduler type.
+        An instance of the selected scheduler type.
     """
     schedulers = {
         "euler": EulerDiscreteScheduler,                 # Fast, good quality (20–30 steps)

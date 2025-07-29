@@ -1,5 +1,6 @@
---extra-index-url https://download.pytorch.org/whl/cu118
+--extra-index-url https://download.pytorch.org/whl/cu128
 
+vllm==0.10.0
 httpx==0.28.1
 pytest==8.4.1
 pytest-asyncio==1.1.0
@@ -8,8 +9,9 @@ accelerate==1.8.1
 diffusers==0.34.0
 faiss_cpu==1.11.0
 fastapi==0.116.1
+# flashinfer-python==0.2.8
 nltk==3.9.1
-numpy==2.3.1
+numpy==2.2.6
 pandas==2.3.1
 Pillow==11.3.0
 pinecone==7.3.0
@@ -20,9 +22,9 @@ Requests==2.32.4
 redis==6.2.0
 scikit_learn==1.7.1
 sentence_transformers==5.0.0
-torch==2.7.0
+torch==2.7.1
 torchmetrics==1.7.3
-torchvision==0.22.0
+torchvision==0.22.1
 tqdm==4.67.1
 transformers==4.53.2
 uvicorn[standard]==0.35.0

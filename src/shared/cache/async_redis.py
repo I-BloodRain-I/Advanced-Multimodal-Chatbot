@@ -1,4 +1,15 @@
-import asyncio
+"""
+Asynchronous Redis client for non-blocking operations.
+
+This module provides an AsyncRedis class that extends the base Redis
+functionality with asynchronous operations using redis.asyncio. It supports
+all the same operations as the synchronous Redis client but with async/await
+syntax for improved performance in asynchronous contexts.
+
+The AsyncRedis client is particularly useful for pub/sub operations and
+high-throughput scenarios where blocking operations would impact performance.
+"""
+
 from typing import List, Optional, Any, Tuple, Union
 import logging
 

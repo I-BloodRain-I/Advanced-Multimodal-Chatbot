@@ -1,3 +1,11 @@
+"""
+WebSocket connection management for the TensorAlix AI Agent API.
+
+This module provides the ConnectionManager class that handles active WebSocket
+connections using a singleton pattern. It manages connection lifecycle,
+message sending, and automatic cleanup of failed connections.
+"""
+
 import logging
 from typing import Union
 
@@ -27,8 +35,8 @@ class ConnectionManager:
         Accept and register a new WebSocket connection.
 
         Args:
-            websocket (WebSocket): The WebSocket connection to register.
-            conv_id (str): Unique identifier for the conversation/client.
+            websocket: The WebSocket connection to register.
+            conv_id: Unique identifier for the conversation/client.
         """
         await websocket.accept()
         self.active_connections[conv_id] = websocket
@@ -39,7 +47,7 @@ class ConnectionManager:
         Remove a WebSocket connection from the active registry.
 
         Args:
-            conv_id (str): The conversation ID whose connection should be removed.
+            conv_id: The conversation ID whose connection should be removed.
         """
         if conv_id in self.active_connections:
             del self.active_connections[conv_id]
@@ -50,11 +58,11 @@ class ConnectionManager:
         Send a message to the WebSocket client associated with the given conv_id.
 
         Args:
-            message (Union[str, bytes]): The message to send.
-            conv_id (str): The recipient's conversation ID.
+            message: The message to send.
+            conv_id: The recipient's conversation ID.
 
         Returns:
-            bool: True if the message was sent successfully, False otherwise.
+            True if the message was sent successfully, False otherwise.
         """
         websocket: WebSocket = self.active_connections.get(conv_id)
         if not websocket:

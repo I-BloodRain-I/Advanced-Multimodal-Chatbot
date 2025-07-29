@@ -1,3 +1,15 @@
+"""
+Message transformation utilities for chat format conversion.
+
+This module provides the PromptTransformer class with static methods for
+converting between different message formats used throughout the system.
+It handles message history concatenation, prompt string formatting, and
+various message filtering and extraction operations.
+
+The transformer supports both manual prompt formatting and tokenizer-based
+chat templates for optimal compatibility with different language models.
+"""
+
 from typing import Dict, Optional, List
 
 from transformers import AutoTokenizer
@@ -18,11 +30,11 @@ class PromptTransformer:
         Appends a single user message to its corresponding history.
 
         Args:
-            message (Message): The latest message to append.
-            history (MessageHistory): The chat history.
+            message: The latest message to append.
+            history: The chat history.
 
         Returns:
-            MessageHistory: Updated history with the new message added.
+            Updated history with the new message added.
         """
         if message:
             history.append(message)
@@ -36,11 +48,11 @@ class PromptTransformer:
         Appends a batch of user messages to their corresponding chat histories.
 
         Args:
-            messages_batch (MessageHistory): List of latest messages from each conversation.
-            histories_batch (List[MessageHistory]): List of message histories for each conversation.
+            messages_batch: List of latest messages from each conversation.
+            histories_batch: List of message histories for each conversation.
 
         Returns:
-            List[MessageHistory]: Updated list of message histories with the new messages added.
+            Updated list of message histories with the new messages added.
 
         Raises:
             ValueError: If the number of messages does not match the number of histories.
@@ -60,10 +72,11 @@ class PromptTransformer:
         Converts a list of messages into a formatted string prompt, optionally using a tokenizer's chat template.
 
         Args:
-            messages (MessageHistory): The messages to convert into a prompt.
+            messages: The messages to convert into a prompt.
+            tokenizer: Optional tokenizer for chat template formatting.
 
         Returns:
-            str: A prompt string representing the sequence of messages.
+            A prompt string representing the sequence of messages.
         """
         if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template:
             # Use the tokenizer's built-in chat formatting if available
@@ -95,10 +108,11 @@ class PromptTransformer:
         Converts a batch of message lists into a list of formatted prompt strings.
 
         Args:
-            messages_batch (List[MessageHistory]): A batch of message sequences.
+            messages_batch: A batch of message sequences.
+            tokenizer: Optional tokenizer for chat template formatting.
 
         Returns:
-            List[str]: A list of prompt strings, one for each batch of messages.
+            A list of prompt strings, one for each batch of messages.
         """
         return [cls.format_messages_to_str(message, tokenizer) for message in messages_batch]
     
@@ -108,11 +122,11 @@ class PromptTransformer:
         Filters a batch of message histories, returning only messages with the specified role.
 
         Args:
-            messages_batch (List[MessageHistory]): A list of message histories, where each history is a list of Message objects.
-            role (str): The role to filter by ('user', 'assistant', or 'system').
+            messages_batch: A list of message histories, where each history is a list of Message objects.
+            role: The role to filter by ('user', 'assistant', or 'system').
 
         Returns:
-            List[MessageHistory]: A list of message histories with only messages matching the given role.
+            A list of message histories with only messages matching the given role.
         """
         if role not in ['user', 'assistant', 'system']:
             raise
@@ -125,11 +139,11 @@ class PromptTransformer:
         Extracts and concatenates message content from a batch of message histories.
 
         Args:
-            messages_batch (List[MessageHistory]): A list of message histories (already filtered if needed).
-            separator (str): String used to join message contents (default is newline).
+            messages_batch: A list of message histories (already filtered if needed).
+            separator: String used to join message contents (default is newline).
 
         Returns:
-            List[str]: A list of concatenated message contents per conversation.
+            A list of concatenated message contents per conversation.
         """
         return [separator.join([message.content for message in messages])
                 for messages in messages_batch]
@@ -140,9 +154,9 @@ class PromptTransformer:
         Converts a batch of message histories into lists of dictionaries for serialization.
 
         Args:
-            messages_batch (List[MessageHistory]): A batch of message sequences.
+            messages_batch: A batch of message sequences.
 
         Returns:
-            List[List[Dict[str, str]]]: A nested list of dictionaries representing each message.
+            A nested list of dictionaries representing each message.
         """
         return [[messages.model_dump() for messages in histories] for histories in messages_batch]

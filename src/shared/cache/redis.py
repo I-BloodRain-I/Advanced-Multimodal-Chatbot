@@ -1,3 +1,15 @@
+"""
+Redis client wrapper for caching and message queuing.
+
+This module provides a singleton Redis class that wraps the redis-py client
+to provide simplified Redis operations for the TensorAlix Agent AI system.
+It handles connection management, error logging, and provides methods for
+list operations, pub/sub messaging, and key-value storage.
+
+The Redis instance is used throughout the system for request queuing,
+response streaming, and temporary data storage.
+"""
+
 from typing import List, Optional, Any, Tuple, Union
 import logging
 
@@ -48,12 +60,12 @@ class Redis:
         Set a value for a given key in Redis, with optional expiration.
 
         Args:
-            key (str): The Redis key.
-            value (Any): The value to store.
-            expire_in_sec (Optional[int]): Optional expiration time in seconds.
+            key: The Redis key.
+            value: The value to store.
+            expire_in_sec: Optional expiration time in seconds.
 
         Returns:
-            bool: True if successful, False otherwise.
+            True if successful, False otherwise.
         """
         try:
             return self._redis.set(name=key, value=value, ex=expire_in_sec)
@@ -66,11 +78,11 @@ class Redis:
         Pop one or more elements from the left of a Redis list.
 
         Args:
-            key (str): The Redis list key.
-            count (Optional[int]): Number of elements to pop.
+            key: The Redis list key.
+            count: Number of elements to pop.
 
         Returns:
-            Optional[Any]: The popped element(s), or None on failure.
+            The popped element(s), or None on failure.
         """
         try:
             value = self._redis.lpop(name=key, count=count)
@@ -85,11 +97,11 @@ class Redis:
         Push a value to the right end of a Redis list.
 
         Args:
-            key (str): The Redis list key.
-            value (Any): The value to append.
+            key: The Redis list key.
+            value: The value to append.
 
         Returns:
-            bool: True if at least one element was pushed, False otherwise.
+            True if at least one element was pushed, False otherwise.
         """
         try:
             return self._redis.rpush(key, value) > 0
@@ -102,11 +114,11 @@ class Redis:
         Block until an element is available to pop from the left of one or more Redis lists.
 
         Args:
-            keys (Union[str, List[str]]): The Redis list key(s) to monitor.
-            timeout (int): Maximum time to block in seconds (0 = block indefinitely).
+            keys: The Redis list key(s) to monitor.
+            timeout: Maximum time to block in seconds (0 = block indefinitely).
 
         Returns:
-            Optional[Tuple[str, Any]]: Tuple of (key, value) for the popped element, or None on failure/timeout.
+            Tuple of (key, value) for the popped element, or None on failure/timeout.
         """
         try:
             result = self._redis.blpop(keys=keys, timeout=timeout)
@@ -121,12 +133,12 @@ class Redis:
         Get a range of elements from a Redis list.
 
         Args:
-            key (str): The Redis list key.
-            start (int): Starting index (0-based, inclusive).
-            end (int): Ending index (0-based, inclusive, -1 for last element).
+            key: The Redis list key.
+            start: Starting index (0-based, inclusive).
+            end: Ending index (0-based, inclusive, -1 for last element).
 
         Returns:
-            Optional[List[Any]]: List of elements in the specified range, or None on failure.
+            List of elements in the specified range, or None on failure.
         """
         try:
             value = self._redis.lrange(name=key, start=start, end=end)
@@ -141,11 +153,11 @@ class Redis:
         Append a string value to an existing Redis key.
 
         Args:
-            key (str): The Redis key.
-            value (str): The string to append.
+            key: The Redis key.
+            value: The string to append.
 
         Returns:
-            bool: True if the operation succeeded, False otherwise.
+            True if the operation succeeded, False otherwise.
         """
         try:
             return self._redis.append(key=key, value=value)
@@ -158,10 +170,10 @@ class Redis:
         Retrieve the value associated with a given key.
 
         Args:
-            key (str): The Redis key.
+            key: The Redis key.
 
         Returns:
-            Optional[Any]: The retrieved value, or None if not found or on error.
+            The retrieved value, or None if not found or on error.
         """
         try:
             value = self._redis.get(name=key)
@@ -176,10 +188,10 @@ class Redis:
         Delete a key from Redis.
 
         Args:
-            key (str): The Redis key to delete.
+            key: The Redis key to delete.
 
         Returns:
-            bool: True if the key was deleted, False otherwise.
+            True if the key was deleted, False otherwise.
         """
         try:
             return self._redis.delete(key) > 0
@@ -192,10 +204,10 @@ class Redis:
         Check if a given key exists in Redis.
 
         Args:
-            key (str): The Redis key.
+            key: The Redis key.
 
         Returns:
-            bool: True if the key exists, False otherwise.
+            True if the key exists, False otherwise.
         """
         try:
             return self._redis.exists(key) > 0
@@ -208,7 +220,7 @@ class Redis:
         Delete all keys from all Redis databases.
 
         Returns:
-            bool: True if the flush was successful, False otherwise.
+            True if the flush was successful, False otherwise.
         """
         try:
             self._redis.flushall()
@@ -228,7 +240,7 @@ class Redis:
         Create a PubSub instance for subscribing to channels.
 
         Returns:
-            Optional[PubSub]: A PubSub object, or None if creation failed.
+            A PubSub object, or None if creation failed.
         """
         try:
             return self._redis.pubsub()
@@ -241,11 +253,11 @@ class Redis:
         Publish a message to a Redis channel.
 
         Args:
-            channel (str): The channel to publish to.
-            message (str): The message content.
+            channel: The channel to publish to.
+            message: The message content.
 
         Returns:
-            int: Number of clients that received the message.
+            Number of clients that received the message.
         """
         try:
             return self._redis.publish(channel=channel, message=message)

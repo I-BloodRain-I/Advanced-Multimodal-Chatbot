@@ -1,3 +1,12 @@
+"""
+Abstract base class for vector database implementations.
+
+This module defines the VectorDatabaseBase interface that standardizes
+vector database operations for the RAG system. It provides a unified
+API for document indexing, storage, and similarity-based retrieval
+across different vector database backends.
+"""
+
 from abc import ABC, abstractmethod
 from typing import List
 from core.entities.types import EmbeddingArray, RagDocument, DocumentChunk
@@ -26,7 +35,7 @@ class VectorDatabaseBase(ABC):
         Add document embeddings and metadata to the vector database.
         
         Args:
-            documents (List[RagDocument]): List of `RagDocument` objects that consist of `DocumentChunk` objects
+            documents: List of `RagDocument` objects that consist of `DocumentChunk` objects
         """
         pass
 
@@ -38,10 +47,10 @@ class VectorDatabaseBase(ABC):
         Search for similar document chunks using query embeddings.
 
         Args:
-            query_embeddings (np.ndarray): A single embedding or batch of embeddings, shaped (embedding_dim,) or (n_queries, embedding_dim).
-            n_extracted_docs (int): Number of top similar document chunks to retrieve per query.
+            query_embeddings: A single embedding or batch of embeddings, shaped (embedding_dim,) or (n_queries, embedding_dim).
+            n_extracted_docs: Number of top similar document chunks to retrieve per query.
 
         Returns:
-            List[List[DocumentChunk]]: A list of lists containing the top-k most similar document chunks for each query.
+            A list of lists containing the top-k most similar document chunks for each query.
         """
         pass

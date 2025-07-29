@@ -1,3 +1,11 @@
+"""
+Task routing module for conversation classification.
+
+This module provides the Router class that uses a trained neural network classifier
+to determine what type of AI task should be performed for each conversation based
+on embedding representations of user prompts.
+"""
+
 from typing import List, Optional, Tuple
 
 from numpy import ndarray
@@ -15,7 +23,7 @@ class Router:
     using a `TaskClassifier` neural network.
 
     Args:
-        model (TaskClassifier): A trained classifier model for task routing.
+        model: A trained classifier model for task routing.
     """
     def __init__(self, model: TaskClassifier):
         self.model = model
@@ -29,13 +37,12 @@ class Router:
         Routes embeddings to task types using the classifier.
 
         Args:
-            embeddings (EmbeddingArray): A batch of embeddings representing prompts or conversations.
-            return_probs (bool): If True, also returns the confidence scores (max softmax probs) for each prediction.
+            embeddings: A batch of embeddings representing prompts or conversations.
+            return_probs: If True, also returns the confidence scores (max softmax probs) for each prediction. Defaults to False.
 
         Returns:
-            Tuple[List[TaskType], Optional[torch.Tensor]]: 
-                - List of predicted TaskType enums.
-                - Optionally, tensor of softmax probabilities for the chosen class.
+            - List of predicted TaskType enums.
+            - Optionally, tensor of softmax probabilities for the chosen class.
         """
         embeddings = self._normalize_embeddings(embeddings).to(self.device)
 

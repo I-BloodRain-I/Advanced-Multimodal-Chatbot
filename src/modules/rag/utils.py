@@ -7,11 +7,11 @@ def load_vector_db(db_name: str, **kwargs) -> PineconeDatabase:
     Loads and returns a vector database instance based on the specified database name.
 
     Args:
-        db_name (str): The name of the vector database to load (e.g., 'pinecone').
+        db_name: The name of the vector database to load (e.g., 'pinecone').
         **kwargs: Additional keyword arguments to override or supplement the database config.
 
     Returns:
-        PineconeDatabase: An initialized instance of the specified vector database.
+        An initialized instance of the specified vector database.
 
     Raises:
         ValueError: If the provided db_name is not supported.

@@ -4,7 +4,7 @@ services:
     container_name: redis_service
     ports:
       - "6379:6379"
-    restart: always
+    restart: no
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -23,7 +23,7 @@ services:
       - .env
     volumes:
       - .:/app
-    restart: always
+    restart: no
 
   app:
     build: .
@@ -35,7 +35,7 @@ services:
       - .env
     volumes:
       - .:/app
-    restart: always
+    restart: no
     deploy:
       resources:
         reservations:
@@ -56,6 +56,6 @@ services:
       - .env
     volumes:
       - .:/app
-    restart: always
+    restart: no
     profiles:
       - cpu

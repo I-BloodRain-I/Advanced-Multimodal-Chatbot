@@ -1,3 +1,9 @@
+"""
+FastAPI server module for TensorAlix AI Agent.
+
+Provides WebSocket endpoints for real-time communication between clients and the AI processing pipeline.
+Handles conversation routing, message queuing through Redis, and serves the web application interface.
+"""
 import logging
 import json
 import os
@@ -27,6 +33,12 @@ app = create_app()
 # Serve index.html when the root path '/' is requested
 @app.get("/")
 async def serve_index():
+    """
+    Serve the main index.html file for the web application.
+    
+    Returns:
+        The index.html file from the webapp directory.
+    """
     return FileResponse(os.path.join(Config().get('webapp_dir'), "index.html"))
 
 @app.websocket("/ws/{conv_id}")
@@ -38,8 +50,12 @@ async def websocket_endpoint(websocket: WebSocket, conv_id: str):
     and continuously receives prompt data from the client to store in Redis.
 
     Args:
-        websocket (WebSocket): The WebSocket connection to the client.
-        conv_id (str): Unique identifier for the conversation.
+        websocket: The WebSocket connection to the client.
+        conv_id: Unique identifier for the conversation.
+        
+    Raises:
+        WebSocketDisconnect: When client disconnects.
+        Exception: For any unexpected errors during WebSocket handling.
     """
     await manager.connect(websocket, conv_id)
     await listener.subscribe(conv_id)            # Start listening to Redis pub/sub for this conv_id

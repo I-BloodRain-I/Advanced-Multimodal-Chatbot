@@ -1,3 +1,10 @@
+"""
+Text embedding generation module.
+
+Provides a singleton Embedder class that uses SentenceTransformer models to convert
+text into dense vector embeddings. Supports batch processing, GPU acceleration,
+and different output formats (NumPy arrays or PyTorch tensors).
+"""
 from typing import Union, List
 import logging
 
@@ -18,8 +25,8 @@ class Embedder:
     for extracting embeddings from text prompts.
 
     Args:
-        model_name (str): Name of the pretrained SentenceTransformer model to load.
-        device_name (str): Torch device identifier (e.g., 'cuda' or 'cpu').
+        model_name: Name of the pretrained SentenceTransformer model to load.
+        device_name: Torch device identifier (e.g., 'cuda' or 'cpu').
     """
     _instance = None
 
@@ -60,13 +67,16 @@ class Embedder:
         Encodes a text prompt or list of prompts into dense vector embeddings.
 
         Args:
-            prompt (Union[str, List[str]]): The input text(s) to embed.
-            batch_size (int): Batch size for processing inputs.
-            show_progress_bar (bool): Whether to display a progress bar during encoding.
-            convert_to_tensor (bool): If True, returns a torch.Tensor instead of a NumPy array.
+            prompt: The input text(s) to embed.
+            batch_size: Batch size for processing inputs.
+            show_progress_bar: Whether to display a progress bar during encoding.
+            convert_to_tensor: If True, returns a torch.Tensor instead of a NumPy array.
 
         Returns:
-            Union[NDArray, torch.Tensor]: The resulting embeddings.
+            The resulting embeddings as NumPy array or torch.Tensor.
+            
+        Raises:
+            NotImplementedError: If model type is not supported.
         """
         if isinstance(self.model, SentenceTransformer):
             return self.model.encode(prompt, 

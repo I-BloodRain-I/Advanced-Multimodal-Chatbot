@@ -137,15 +137,18 @@ def test_stream_subscriber_init_default_manager():
 
 
 @pytest.mark.asyncio
-@patch('api.stream_subscriber.AsyncRedis', new_callable=Mock)
-async def test_stream_subscriber_subscribe_new(mock_redis):
+async def test_stream_subscriber_subscribe_new():
     manager = Mock()
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
+    
+    # Mock the pubsub directly
+    mock_pubsub = AsyncMock()
+    subscriber.pubsub = mock_pubsub
 
     conv_id = "test_conv_123"
     await subscriber.subscribe(conv_id)
     
-    subscriber.pubsub.subscribe.assert_called_once_with(conv_id)
+    mock_pubsub.subscribe.assert_called_once_with(conv_id)
     assert conv_id in subscriber.tasks
 
 
@@ -368,24 +371,24 @@ async def test_websocket_endpoint_unexpected_exception(mock_listener, mock_manag
 
 
 @pytest.mark.asyncio
-@patch('api.stream_subscriber.AsyncRedis')
-async def test_stream_subscriber_forward_message(mock_redis):
+async def test_stream_subscriber_forward_message():
     manager = AsyncMock()
     subscriber = StreamSubscriber(manager=manager, host="localhost", port=6379)
     
+    # Mock the pubsub directly
     mock_pubsub = AsyncMock()
+    subscriber.pubsub = mock_pubsub
+    
     mock_message = {
         'type': 'message',
+        'channel': b'test_conv_123',
         'data': b'test message'
     }
 
     async def async_gen():
         yield mock_message
 
-    mock_pubsub.listen = lambda: async_gen()
-    mock_pubsub.subscribe = Mock()
-    
-    subscriber.pubsub = mock_pubsub
+    mock_pubsub.listen.return_value = async_gen()
     
     conv_id = "test_conv_123"
     await subscriber.subscribe(conv_id)

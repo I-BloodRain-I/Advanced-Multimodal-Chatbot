@@ -1,3 +1,16 @@
+"""
+Configuration management module for the TensorAlix Agent AI system.
+
+This module provides a singleton Config class that handles loading, validation,
+and management of application configuration from YAML files. It supports
+dynamic configuration updates, environment variable integration, and
+automatic default configuration generation.
+
+The configuration covers all system components including LLM settings,
+embedder configurations, RAG parameters, image generation settings,
+and task classification models.
+"""
+
 import yaml
 from pathlib import Path
 from typing import Dict, Any
@@ -52,12 +65,25 @@ class Config:
                 "device_name": "cuda"
             },
             "llm": {
+                "engine": "transformers",   # must be [transformers, vllm]
                 "model_name": "meta-llama/Llama-3.2-3B-Instruct",
                 "dtype": "int8",
-                "max_new_tokens": 1024,
-                "temperature": 0.7,
-                "device_name": "cuda",
-                "stream_output": True
+                "transformers_engine": {
+                    "device_name": "cuda"
+                },
+                "vllm_engine": {
+                    "quantization": None,  # must be [None, fp8, awq, qptq, squeezellm]
+                    "tensor_parallel_size": 1,
+                    "gpu_memory_utilization": 0.8,
+                    "max_model_len": 4096,  
+                    "max_num_seqs": 64,
+                    "max_num_batched_tokens": 8096,
+                },
+                "generation": {
+                    "max_new_tokens": 1024,
+                    "temperature": 0.7,
+                    "top_p": 0.9
+                },
             },
             "image_generator": {
                 "model_name": "dreamlike-art/dreamlike-photoreal-2.0",

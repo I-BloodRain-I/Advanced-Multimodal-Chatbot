@@ -1,11 +1,25 @@
-from typing import Dict, List
+"""
+Core pipeline orchestration module for the TensorAlix Agent AI system.
+
+This module contains the main Pipeline class that coordinates the execution
+of AI tasks through a multi-stage processing pipeline. It handles embedding
+generation, task routing, retrieval-augmented generation, LLM inference,
+and image generation in a unified workflow.
+
+The pipeline processes batches of conversations, routing them to appropriate
+task handlers based on classification results and returning structured responses.
+"""
+
+from typing import Dict, List, Literal
 import logging
 
 import torch
 
 from core.entities.types import AgentResponse, TaskBatch
+from core.entities.enums import ModelDType
 from modules.image_generation import ImageGenerator
 from modules.llm import LLM
+from modules.llm.configs import LLMEngineConfig
 from modules.rag import RAG, VectorDatabaseBase
 from orchestrator.router import Router
 from shared.embedders import Embedder
@@ -29,24 +43,20 @@ class Pipeline:
     - ImageGenerator: Creates image outputs from prompts when needed.
 
     Args:
-        router_model (torch.nn.Module): Pretrained classifier for task routing.
-        rag_vector_db (VectorDatabaseBase): Vector DB used in retrieval-augmented generation.
-        rag_n_extracted_docs (int): Number of docs to retrieve per query (default 5).
-        rag_prompt_format (str): Format string to merge retrieved docs and prompt.
-        embed_model_name (str): Model name for the embedder.
-        embed_device_name (str): Device name for running the embedder (e.g., 'cuda').
-        llm_model_name (str): Model name for the LLM backend.
-        llm_dtype (str): Data type used by the LLM (e.g., 'int8').
-        llm_max_new_tokens (int): Max number of tokens the LLM can generate.
-        llm_temperature (float): Sampling temperature for the LLM.
-        llm_device_name (str): Device used for running the LLM (e.g., 'cuda').
-        llm_stream_output (bool): Whether to stream the LLM output incrementally.
-        img_model_name (str): Model name for the image generation model.
-        img_device_name (str): Device for image generation (e.g., 'cuda').
-        img_dtype (str): Data type for image model (e.g., 'fp16').
-        img_scheduler_type (str): Type of scheduler to use during image generation.
-        img_use_refiner (bool): Whether to use an additional refiner pipeline.
-        img_refiner_name (str): Model name of the image refiner pipeline.
+        router_model: Pretrained classifier for task routing.
+        llm_engine_name: The LLM engine type to use.
+        llm_engine_config: Configuration object containing all LLM settings.
+        rag_vector_db: Vector DB used in retrieval-augmented generation.
+        rag_n_extracted_docs: Number of docs to retrieve per query (default 5).
+        rag_prompt_format: Format string to merge retrieved docs and prompt.
+        embed_model_name: Model name for the embedder.
+        embed_device_name: Device name for running the embedder (e.g., 'cuda').
+        img_model_name: Model name for the image generation model.
+        img_device_name: Device for image generation (e.g., 'cuda').
+        img_dtype: Data type for image model (e.g., 'fp16').
+        img_scheduler_type: Type of scheduler to use during image generation.
+        img_use_refiner: Whether to use an additional refiner pipeline.
+        img_refiner_name: Model name of the image refiner pipeline.
     """
     _instance = None
 
@@ -58,20 +68,16 @@ class Pipeline:
 
     def __init__(self,
         router_model: torch.nn.Module,
+        llm_engine_name: Literal['transformers', 'vllm'],
+        llm_engine_config: LLMEngineConfig,
         rag_vector_db: VectorDatabaseBase,
         rag_n_extracted_docs: int = 5,
         rag_prompt_format: str = '{context}\n{prompt}',
         embed_model_name: str = 'all-mpnet-base-v2',
         embed_device_name: str = 'cuda',
-        llm_model_name: str = 'meta-llama/Llama-3.2-3B-Instruct',
-        llm_dtype: str = 'int8',
-        llm_max_new_tokens: int = 1024,
-        llm_temperature: float = 0.7,
-        llm_device_name: str = 'cuda',
-        llm_stream_output: bool = False,
         img_model_name: str = '',
         img_device_name: str = 'cuda',
-        img_dtype: str = 'fp16',
+        img_dtype: ModelDType = ModelDType.FLOAT16,
         img_scheduler_type: str = 'euler_ancestral',
         img_use_refiner: bool = False,
         img_refiner_name: str = 'stabilityai/stable-diffusion-xl-refiner-1.0'
@@ -87,13 +93,7 @@ class Pipeline:
             n_extracted_docs=rag_n_extracted_docs, 
             prompt_format=rag_prompt_format
         )
-        self.llm = LLM(
-            model_name=llm_model_name,
-            dtype=llm_dtype,
-            max_new_tokens=llm_max_new_tokens,
-            temperature=llm_temperature,
-            device_name=llm_device_name
-        )
+        self.llm = LLM(llm_engine_name, llm_engine_config)
         self.image_generator = ImageGenerator(
             model_name=img_model_name,
             device=img_device_name,
@@ -102,7 +102,6 @@ class Pipeline:
             use_refiner=img_use_refiner,
             refiner_name=img_refiner_name
         )
-        self.stream_output = llm_stream_output
         self._initialized = True
 
     def __call__(self, batch: ConversationBatch) -> List[AgentResponse]:
@@ -110,10 +109,10 @@ class Pipeline:
         Processes a batch of conversations end-to-end and returns agent responses.
 
         Args:
-            batch (ConversationBatch): Batch of conversation histories and metadata.
+            batch: Batch of conversation histories and metadata.
 
         Returns:
-            List[AgentResponse]: List of responses generated by the LLM.
+            List of responses generated by the LLM.
         """
         try:
             grouped_convs = self._route_and_group(batch)
@@ -150,8 +149,8 @@ class Pipeline:
         for task_type, group in grouped_convs.items():
             logger.debug(f"Handling {task_type.name} with {len(group.histories)} conversations")
 
-            if task_type == TaskType.RAG:
-                responses.extend(self._handle_rag_task(group))
+            if task_type == TaskType.TEXT_GEN:
+                responses.extend(self._handle_text_gen_task(group))
             elif task_type == TaskType.IMAGE_GEN:
                 responses.extend(self._handle_img_gen_task(group))
             else:
@@ -159,18 +158,14 @@ class Pipeline:
 
         return responses
 
-    def _handle_rag_task(self, group: TaskBatch) -> List[AgentResponse]:
-        """Executes RAG-specific logic: retrieval, prompt generation, and LLM response."""
+    def _handle_text_gen_task(self, group: TaskBatch) -> List[AgentResponse]:
+        """Executes text generation logic: retrieval, prompt generation, and LLM response."""
         # Add retrieved documents to each conversation context
         self.rag.add_context(group.histories, group.embeddings)
 
-        # Generate responses either as a stream or full text
-        if self.stream_output:
-            outputs = self.llm.generate_stream_batch(group.histories)
-            response_type = "stream"
-        else:
-            outputs = self.llm.generate_batch(group.histories)
-            response_type = "text"
+        # Generate responses as a stream
+        outputs = self.llm.generate_batch(group.histories)
+        response_type = "stream"
 
         # Create AgentResponse objects for each output
         return [
@@ -199,7 +194,7 @@ class Pipeline:
         Builds and returns a pipeline instance using the configuration factory.
 
         Returns:
-            Pipeline: Configured pipeline instance.
+            Configured pipeline instance.
         """
         from orchestrator.pipeline.factory import PipelineFactory
         return PipelineFactory.build()

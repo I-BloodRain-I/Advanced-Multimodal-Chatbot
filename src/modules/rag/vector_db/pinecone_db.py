@@ -1,3 +1,15 @@
+"""
+Pinecone vector database implementation for the RAG system.
+
+This module provides a concrete implementation of the VectorDatabaseBase
+interface using Pinecone's serverless vector database service. It handles
+document indexing, embedding storage, and similarity-based retrieval with
+support for metadata filtering and batch operations.
+
+The implementation supports automatic index creation, document chunking,
+and efficient similarity search operations optimized for RAG workflows.
+"""
+
 from typing import List
 import logging
 
@@ -20,11 +32,11 @@ class PineconeDatabase(VectorDatabaseBase):
     using Pinecone's serverless vector database.
 
     Args:
-        index_name (str): Name of the Pinecone index
-        dimension (int): Vector dimension for embeddings
-        metric (str): Distance metric for similarity search (e.g., 'cosine', 'euclidean')
-        cloud (str): Cloud provider (e.g., 'aws', 'gcp', 'azure')
-        region (str): Cloud region (e.g., 'us-east-1', 'us-west1')
+        index_name: Name of the Pinecone index
+        dimension: Vector dimension for embeddings
+        metric: Distance metric for similarity search (e.g., 'cosine', 'euclidean')
+        cloud: Cloud provider (e.g., 'aws', 'gcp', 'azure')
+        region: Cloud region (e.g., 'us-east-1', 'us-west1')
      
     Raises:
         ValueError: If configuration is invalid
@@ -109,11 +121,11 @@ class PineconeDatabase(VectorDatabaseBase):
         Search for similar document chunks using query embeddings.
 
         Args:
-            query_embeddings (np.ndarray): A single embedding or batch of embeddings, shaped (embedding_dim,) or (n_queries, embedding_dim).
-            n_extracted_docs (int): Number of top similar document chunks to retrieve per query.
+            query_embeddings: A single embedding or batch of embeddings, shaped (embedding_dim,) or (n_queries, embedding_dim).
+            n_extracted_docs: Number of top similar document chunks to retrieve per query.
 
         Returns:
-            List[List[DocumentChunk]]: A list of lists containing the top-k most similar document chunks for each query.
+            A list of lists containing the top-k most similar document chunks for each query.
 
         Raises:
             ValueError: If input embedding dimensions are invalid.
@@ -161,7 +173,7 @@ class PineconeDatabase(VectorDatabaseBase):
         Validates and reshapes the input embeddings to ensure compatibility with the configured vector dimension.
 
         Returns:
-            np.ndarray: A 2D numpy array where each row represents a single embedding vector.
+            A 2D numpy array where each row represents a single embedding vector.
         """
         embeddings = np.array(embeddings)
         

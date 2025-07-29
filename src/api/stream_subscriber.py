@@ -1,3 +1,10 @@
+"""
+Redis pub/sub streaming subscriber for WebSocket message forwarding.
+
+Handles Redis pub/sub subscriptions for conversation channels and forwards
+streaming messages to the appropriate WebSocket connections via the ConnectionManager.
+Provides unified message listening and automatic subscription management.
+"""
 import asyncio
 from typing import Dict, Optional
 import logging
@@ -46,12 +53,12 @@ class StreamSubscriber:
         Subscribe to a Redis channel for a given conversation ID.
         
         Args:
-            conv_id (str): The conversation identifier used as the Redis channel.
+            conv_id: The conversation identifier used as the Redis channel.
         """
         if conv_id in self.tasks:
             return
 
-        self.pubsub.subscribe(conv_id)
+        await self.pubsub.subscribe(conv_id)
         await self._start_listener()
         
         # Create empty task for tracking
@@ -63,7 +70,7 @@ class StreamSubscriber:
         Unsubscribe from a Redis channel for a specific conversation.
         
         Args:
-            conv_id (str): The conversation identifier to unsubscribe from.
+            conv_id: The conversation identifier to unsubscribe from.
         """
         if conv_id not in self.tasks:
             return
@@ -79,7 +86,11 @@ class StreamSubscriber:
             self.listener_task = None
 
     async def close(self):
-        """Close all subscriptions and cleanup resources."""
+        """
+        Close all subscriptions and cleanup resources.
+        
+        Cancels all active tasks and closes the Redis pub/sub connection.
+        """
         if self.listener_task:
             self.listener_task.cancel()
         await self.pubsub.close()
